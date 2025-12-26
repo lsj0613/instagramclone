@@ -1,0 +1,38 @@
+{
+  /* 전체 기본 포맷터를 Prettier로 지정 */
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  /* 저장 시 자동 포맷팅 활성화 */
+  "editor.formatOnSave": true,
+
+  /* 저장 시 ESLint가 가능한 모든 오류를 자동으로 수정하도록 설정 */
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  /* Next.js/TypeScript 환경을 위한 언어별 최적화 */
+  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+
+  "cSpell.words": [
+    "bemwki",
+    "bsnf",
+    "bxljme",
+    "deveventapp",
+    "fract",
+    "grotesk",
+    "highp",
+    "nixpkgs",
+    "oklch",
+    "schibsted",
+    "signup"
+  ]
+}
