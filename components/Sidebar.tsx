@@ -30,14 +30,18 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [expandedState, setExpandedState] = useState<"none" | "search" | "notifications">("none");
-  
+  const [expandedState, setExpandedState] = useState<
+    "none" | "search" | "notifications"
+  >("none");
+
   // 데이터 상태 관리
-  const [notifications, setNotifications] = useState<SerializedNotification[]>([]);
+  const [notifications, setNotifications] = useState<SerializedNotification[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   // 세션에서 가져와야 할 유저 ID (테스트용 하드코딩)
-  const currentUserId = "658a12345678901234567890"; 
+  const currentUserId = "694e633fa98836efd9f0e496";
 
   // 알림 데이터 페칭 로직
   useEffect(() => {
@@ -47,7 +51,9 @@ export default function Sidebar() {
         try {
           const response = await getNotifications(currentUserId);
           if (response.success && response.data) {
-            const parsedData: SerializedNotification[] = JSON.parse(response.data);
+            const parsedData: SerializedNotification[] = JSON.parse(
+              response.data
+            );
             setNotifications(parsedData);
           }
         } catch (error) {
@@ -65,7 +71,9 @@ export default function Sidebar() {
     if (type === "search") {
       setExpandedState(expandedState === "search" ? "none" : "search");
     } else if (type === "notifications") {
-      setExpandedState(expandedState === "notifications" ? "none" : "notifications");
+      setExpandedState(
+        expandedState === "notifications" ? "none" : "notifications"
+      );
     } else {
       setExpandedState("none");
     }
@@ -103,7 +111,8 @@ export default function Sidebar() {
               const isActive = pathname === item.href && item.type === "link";
               const isExpanded =
                 (item.type === "search" && expandedState === "search") ||
-                (item.type === "notifications" && expandedState === "notifications");
+                (item.type === "notifications" &&
+                  expandedState === "notifications");
 
               return (
                 <li key={item.name} className="w-full">
@@ -123,7 +132,8 @@ export default function Sidebar() {
                       onClick={() => toggleExpand(item.type)}
                       className={cn(
                         "flex w-full justify-center rounded-lg p-3 transition-colors hover:bg-gray-100 text-gray-600",
-                        isExpanded && "border border-gray-200 text-black shadow-inner bg-gray-50"
+                        isExpanded &&
+                          "border border-gray-200 text-black shadow-inner bg-gray-50"
                       )}
                     >
                       <Icon size={26} strokeWidth={isExpanded ? 3 : 2} />
