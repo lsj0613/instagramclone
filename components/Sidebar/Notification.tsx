@@ -29,7 +29,7 @@ interface NotificationProps {
 }
 
 export default function Notification({ notification }: NotificationProps) {
-  const { issuer, type, createdAt, postId } = notification;
+  const { issuer, type, createdAt, postId, commentId } = notification;
 
   // 알림 타입별 렌더링 로직 (Logic)
   const getNotificationContent = () => {

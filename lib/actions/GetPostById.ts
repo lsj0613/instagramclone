@@ -15,7 +15,7 @@ interface PostResponse {
   data?: IPostPopulated; // any 대신 명확한 타입을 지정
   error?: string;
 }
-
+/* postId를 받아 작성자 정보가 populated된 post 정보를 반환 */
 export async function getPostById(postId: string): Promise<PostResponse> {
   try {
     // 1. 데이터베이스 연결 확인

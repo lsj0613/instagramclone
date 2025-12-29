@@ -18,6 +18,7 @@ interface ErrorResponse {
 
 type ActionResponse = SuccessResponse | ErrorResponse;
 
+/*PostCreateInput을 받아 새 Post를 db에 생성하고 그 결과를 반환 */
 export async function createPost(
   input: PostCreateInput
 ): Promise<ActionResponse> {

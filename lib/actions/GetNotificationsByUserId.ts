@@ -10,7 +10,7 @@ interface NotificationResponse {
   data?: string; // 직렬화된 JSON 문자열
   error?: string;
 }
-
+/* 알림 발생자 정보가 populated된 notification을 반환 */
 export async function getNotifications(userId: string): Promise<NotificationResponse> {
   try {
     await connectDB();

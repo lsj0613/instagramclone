@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Notificationlist from "./Sidebar/Notificationlist";
-import { getNotifications } from "@/lib/actions/Getnotifications";
+import { getNotifications } from "@/lib/actions/GetNotificationsByUserId";
 import { SerializedNotification } from "@/components/Sidebar/Notification";
 
 const NAV_ITEMS = [
@@ -41,7 +41,7 @@ export default function Sidebar() {
   const [isLoading, setIsLoading] = useState(false);
 
   // 세션에서 가져와야 할 유저 ID (테스트용 하드코딩)
-  const currentUserId = "694e633fa98836efd9f0e496";
+  const currentUserId = "695258da5b4fd08d2ce34e3a";
 
   // 알림 데이터 페칭 로직
   useEffect(() => {
