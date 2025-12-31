@@ -10,7 +10,12 @@ interface NotificationResponse {
   data?: string; // 직렬화된 JSON 문자열
   error?: string;
 }
-/* 알림 발생자 정보가 populated된 notification을 반환 */
+/**
+ * Retrieve notifications received by the specified user with issuer details populated and ordered from newest to oldest.
+ *
+ * @param userId - The id of the notification receiver
+ * @returns An object where `success` is `true` and `data` is a JSON string of the notification array (each notification includes the issuer's `username` and `profileImage`) or `success` is `false` and `error` contains a descriptive message
+ */
 export async function getNotifications(
   userId: string
 ): Promise<NotificationResponse> {

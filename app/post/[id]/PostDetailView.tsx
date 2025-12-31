@@ -10,6 +10,12 @@ interface Props {
   post: IPostPopulated;
 }
 
+/**
+ * Render a detailed view of a post with an image carousel, author info, caption, location, likes, and creation date.
+ *
+ * @param post - A populated post object containing `images`, `author` (with `username` and optional `profileImage`), `caption`, optional `location`, `likes` array, and `createdAt` timestamp.
+ * @returns The JSX element for the post detail view.
+ */
 export default function PostDetailView({ post }: Props) {
   // 현재 보여지고 있는 이미지의 인덱스를 상태로 관리합니다.
   const [currentImageIndex, setCurrentImageIndex] = useState(0);

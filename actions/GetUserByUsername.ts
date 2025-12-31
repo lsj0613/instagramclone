@@ -31,8 +31,13 @@ interface UserResponse {
 }
 
 /**
- * <유저네임(username)을 기반으로 유저의 정보를 가져옵니다.>
- * @param username 조회할 유저의 고유 아이디(문자열)
+ * Retrieve a user's client-safe profile by their username.
+ *
+ * This excludes the `password` field and serializes database-specific types
+ * (e.g., ObjectId, Date) to plain strings suitable for client transmission.
+ *
+ * @param username - The user's unique username used to look up the account
+ * @returns A `UserResponse` whose `data` contains the serialized `IUserSafe` when the user is found; `success` is `false` and `error` contains a message otherwise
  */
 export async function getUserByUsername(
   username: string

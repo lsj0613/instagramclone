@@ -4,6 +4,14 @@ import connectDB from "@/lib/db";
 import Post from "@/models/Post.model";
 import User from "@/models/User.model";
 
+/**
+ * Retrieve thumbnail-style posts for a given username.
+ *
+ * @param username - The username whose posts should be retrieved
+ * @returns An object with either:
+ *  - `success: true` and `data`: an array of posts shaped as `{ id: string, image: string | undefined }` (posts sorted newest first), or
+ *  - `success: false` and `error`: a human-readable error message
+ */
 export async function getPostsByUsername(username: string) {
   try {
     await connectDB();

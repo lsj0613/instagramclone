@@ -17,6 +17,17 @@ export type SignupState = {
   };
 };
 
+/**
+ * Performs user signup using provided form data and initiates automatic sign-in on success.
+ *
+ * Validates input, creates a new user if no duplicate exists, hashes the password, saves the user,
+ * and attempts to sign in with the registered credentials. If validation or authentication fails,
+ * returns a state object containing a user-facing message and optional field-level errors.
+ *
+ * @param prevState - Previous signup UI state (optional); returned state can be used to update the UI.
+ * @param formData - FormData containing `email`, `username`, and `password` submitted by the user.
+ * @returns An updated `SignupState` with `message` and/or `errors` when signup or login fails; `undefined` when signup succeeds and sign-in is initiated.
+ */
 export async function signup(
   prevState: SignupState | undefined,
   formData: FormData

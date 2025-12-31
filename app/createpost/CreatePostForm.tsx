@@ -10,6 +10,17 @@ interface CreatePostFormProps {
   username: string; // [추가] 리다이렉트를 위해 유저네임 받기
 }
 
+/**
+ * Render a form for creating a post with caption, location, and one or more image URLs.
+ *
+ * The form validates that at least one non-empty image URL is provided, submits the post via
+ * the `createPost` action, displays submission errors, and on success alerts the user then
+ * navigates to the author's profile page and refreshes data.
+ *
+ * @param userId - The ID of the post author.
+ * @param username - The author's username; used to redirect to `/profile/{username}` after success.
+ * @returns The JSX element for the create-post form.
+ */
 export default function CreatePostForm({
   userId,
   username,

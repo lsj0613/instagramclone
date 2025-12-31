@@ -5,6 +5,13 @@ import { useActionState } from "react";
 import { signup } from "@/actions/SignUp";
 import Link from "next/link";
 
+/**
+ * Renders the signup page with a form for email, username, and password, including validation feedback and submission state.
+ *
+ * The form displays field-specific error messages and a general message when present, disables the submit button while submission is pending, and links to the login page for existing accounts.
+ *
+ * @returns The JSX element representing the signup page
+ */
 export default function SignupPage() {
   // React 19 useActionState 활용
   const [state, dispatch, isPending] = useActionState(signup, undefined);

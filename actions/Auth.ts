@@ -15,8 +15,14 @@ export type LoginState = {
 };
 
 /**
- * Credentials(이메일/비밀번호) 로그인 처리를 위한 서버 액션
- * React 19의 useActionState와 호환되도록 설계됨
+ * Handles email/password authentication as a server action compatible with React 19 useActionState.
+ *
+ * Validates the provided form data and, on success, initiates sign-in. Returns a `LoginState` object
+ * containing field errors or a user-facing message when validation or authentication fails; returns
+ * `undefined` when sign-in succeeds and the action performs a redirect.
+ *
+ * @param formData - FormData containing the login fields (e.g., `email` and `password`)
+ * @returns `LoginState` with `errors` and/or `message` on validation or authentication failure, `undefined` on success
  */
 export async function authenticate(
   prevState: LoginState | undefined,
@@ -63,7 +69,7 @@ export async function authenticate(
 }
 
 /**
- * Google 소셜 로그인 처리를 위한 서버 액션
+ * Initiates sign-in with the Google provider and redirects the client to "/".
  */
 export async function googleLogin() {
   await signIn("google", { redirectTo: "/" });

@@ -31,6 +31,15 @@ const BASE_NAV_ITEMS = [
   { name: "설정", href: "/settings", icon: Settings, type: "link" },
 ];
 
+/**
+ * Renders the app's left sidebar with navigation and an expandable right-side panel.
+ *
+ * The component displays navigation icons (including a profile link derived from the current session),
+ * manages expansion state for search and notifications, and fetches notifications for the signed-in user
+ * when the notifications panel is opened.
+ *
+ * @returns The Sidebar React element that contains the vertical navigation and an expandable panel for search and notifications.
+ */
 export default function Sidebar() {
   const pathname = usePathname();
   const { data: session } = useSession(); // 2. 세션 데이터 가져오기

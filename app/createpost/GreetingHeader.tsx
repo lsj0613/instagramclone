@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from 'react';
 
+/**
+ * Render a personalized header with a randomized Korean sub-greeting.
+ *
+ * The component displays "안녕하세요, {userName}님! 👋" and a randomly chosen
+ * contextual line beneath it; the sub-greeting area reserves vertical space
+ * to prevent layout shift before the greeting is selected.
+ *
+ * @param userName - The display name shown in the main greeting
+ * @returns A JSX element containing the personalized main greeting and a randomized sub-greeting
+ */
 export default function GreetingHeader({ userName }: { userName: string }) {
   const [greeting, setGreeting] = useState<string>("");
 

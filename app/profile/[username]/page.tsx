@@ -9,6 +9,15 @@ interface Props {
   params: Promise<{ username: string }>;
 }
 
+/**
+ * Render a user's profile page including header, statistics, bio, and posts grid.
+ *
+ * Fetches the profile user and their posts, renders a 404 if the user is not found,
+ * and adapts the UI when the current session user is the profile owner.
+ *
+ * @param params - Route params object containing `username`, the profile to display
+ * @returns The JSX element for the user's profile page
+ */
 export default async function ProfilePage({ params }: Props) {
   // 1. URL 파라미터 및 세션 가져오기
   const { username } = await params;
