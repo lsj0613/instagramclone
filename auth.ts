@@ -28,7 +28,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!user || !user.password) return null;
 
           const passwordMatch = await bcrypt.compare(password, user.password);
-          if (passwordMatch) return user;
+          if (passwordMatch) {
+            return {
+              ...user,
+              id: user._id.toString(), // _id를 id로 명시적 복사
+            };
+          }
         }
         return null;
       },

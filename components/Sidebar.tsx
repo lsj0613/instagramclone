@@ -23,7 +23,7 @@ const NAV_ITEMS = [
   { name: "검색", href: "#", icon: Search, type: "search" },
   { name: "알림", href: "#", icon: Heart, type: "notifications" },
   { name: "메시지", href: "/messages", icon: MessageCircle, type: "link" },
-  { name: "만들기", href: "/create", icon: PlusSquare, type: "link" },
+  { name: "만들기", href: "/createpost", icon: PlusSquare, type: "link" },
   { name: "프로필", href: "/profile", icon: User, type: "link" },
   { name: "설정", href: "/settings", icon: Settings, type: "link" },
 ];
