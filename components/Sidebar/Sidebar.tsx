@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react"; // 1. useSession 추가
 import {
   Home,
   Search,
@@ -14,22 +15,25 @@ import {
   Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import Notificationlist from "./Sidebar/Notificationlist";
-import { getNotifications } from "@/lib/actions/GetNotificationsByUserId";
+import Notificationlist from "./Notificationlist";
+import { getNotifications } from "@/actions/GetNotificationsByUserId";
 import { SerializedNotification } from "@/components/Sidebar/Notification";
 
-const NAV_ITEMS = [
+// NAV_ITEMS를 컴포넌트 내부로 이동하거나 동적으로 처리해야 함 (username 때문)
+// 여기서는 기본 템플릿만 정의
+const BASE_NAV_ITEMS = [
   { name: "홈", href: "/", icon: Home, type: "link" },
   { name: "검색", href: "#", icon: Search, type: "search" },
   { name: "알림", href: "#", icon: Heart, type: "notifications" },
   { name: "메시지", href: "/messages", icon: MessageCircle, type: "link" },
-  { name: "만들기", href: "/create", icon: PlusSquare, type: "link" },
-  { name: "프로필", href: "/profile", icon: User, type: "link" },
+  { name: "만들기", href: "/createpost", icon: PlusSquare, type: "link" },
+  // 프로필은 아래 컴포넌트 내부에서 처리
   { name: "설정", href: "/settings", icon: Settings, type: "link" },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { data: session } = useSession(); // 2. 세션 데이터 가져오기
   const [expandedState, setExpandedState] = useState<
     "none" | "search" | "notifications"
   >("none");
@@ -40,12 +44,15 @@ export default function Sidebar() {
   );
   const [isLoading, setIsLoading] = useState(false);
 
-  // 세션에서 가져와야 할 유저 ID (테스트용 하드코딩)
-  const currentUserId = "695258da5b4fd08d2ce34e3a";
+  // 세션에서 유저 ID 가져오기 (없으면 null 처리)
+  const currentUserId = session?.user?.id;
+  // 세션에서 유저네임 가져오기
+  const currentUsername = session?.user?.name;
 
   // 알림 데이터 페칭 로직
   useEffect(() => {
     const fetchNotifications = async () => {
+      // currentUserId가 있을 때만 실행
       if (expandedState === "notifications" && currentUserId) {
         setIsLoading(true);
         try {
@@ -79,9 +86,22 @@ export default function Sidebar() {
     }
   };
 
+  // 3. 네비게이션 아이템 재구성 (프로필 링크 동적 할당)
+  const navItems = [
+    ...BASE_NAV_ITEMS.slice(0, 5), // 홈 ~ 만들기
+    {
+      name: "프로필",
+      // 유저네임이 있으면 해당 프로필로, 없으면 로그인으로
+      href: currentUsername ? `/profile/${currentUsername}` : "/login",
+      icon: User,
+      type: "link",
+    },
+    ...BASE_NAV_ITEMS.slice(5), // 설정
+  ];
+
   return (
     <>
-      {/* 1. 외부 클릭 감지용 오버레이 (패널이 열렸을 때만 활성화) */}
+      {/* 1. 외부 클릭 감지용 오버레이 */}
       {expandedState !== "none" && (
         <div
           className="fixed inset-0 z-40 bg-black/0"
@@ -106,7 +126,8 @@ export default function Sidebar() {
 
           {/* 메뉴 리스트 */}
           <ul className="flex flex-1 flex-col items-center gap-4">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
+              // navItems 변수 사용
               const Icon = item.icon;
               const isActive = pathname === item.href && item.type === "link";
               const isExpanded =
@@ -122,7 +143,7 @@ export default function Sidebar() {
                       onClick={() => setExpandedState("none")}
                       className={cn(
                         "flex justify-center rounded-lg p-3 transition-colors hover:bg-gray-100 text-gray-600",
-                        isActive && "text-black"
+                        isActive && "text-black" // 활성화 상태 스타일
                       )}
                     >
                       <Icon size={26} strokeWidth={isActive ? 3 : 2} />
@@ -179,8 +200,13 @@ export default function Sidebar() {
                     <div className="flex justify-center pt-20">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-black" />
                     </div>
-                  ) : (
+                  ) : notifications.length > 0 ? (
                     <Notificationlist notifications={notifications} />
+                  ) : (
+                    // 알림 없을 때 안내 문구 추가
+                    <div className="mt-10 text-center text-sm text-gray-400">
+                      새로운 알림이 없습니다.
+                    </div>
                   )}
                 </div>
               </>

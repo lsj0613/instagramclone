@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import connectDB from "@/lib/db";
-import Post from "@/lib/models/Post.model";
+import Post from "@/models/Post.model";
 import { PostCreateSchema, PostCreateInput } from "@/lib/validation";
 
 // 반환 값에 대한 타입 정의
