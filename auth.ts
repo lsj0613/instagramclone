@@ -3,7 +3,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import connectDB from "@/lib/db"; //
-import User from "@/lib/models/User.model"; //
+import User, { IUser } from "@/lib/models/User.model"; //
 import bcrypt from "bcrypt";
 import { LoginSchema } from "@/lib/validation";
 
@@ -17,16 +17,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         // 1. 데이터 검증 (Zod)
         const validatedFields = LoginSchema.safeParse(credentials);
-        
+
         if (validatedFields.success) {
           const { email, password } = validatedFields.data;
-          
+
           await connectDB(); //
           const user = await User.findOne({ email });
 
           // 2. 사용자 존재 및 비밀번호 일치 여부 확인
           if (!user || !user.password) return null;
-          
+
           const passwordMatch = await bcrypt.compare(password, user.password);
           if (passwordMatch) return user;
         }
@@ -41,14 +41,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           await connectDB();
           const existingUser = await User.findOne({ email: user.email });
-          
+
           if (!existingUser) {
             const newUser = new User({
-                username: user.name?.replace(/\s/g, "").toLowerCase(),
-                email: user.email,
-                profileImage: user.image,
-              });
-              await newUser.save();
+              username: user.name?.replace(/\s/g, "").toLowerCase(),
+              email: user.email,
+              profileImage: user.image,
+            });
+            await newUser.save();
           }
         } catch (error) {
           console.error("Google 로그인 DB 저장 오류:", error);
@@ -61,6 +61,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.username = (user as IUser).username;
       }
       return token;
     },
@@ -68,6 +69,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (token.id && session.user) {
         session.user.id = token.id as string;
+        session.user.name = token.username as string;
       }
       return session;
     },
