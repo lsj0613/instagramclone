@@ -1,7 +1,14 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import CreatePostForm from "./CreatePostForm";
-import GreetingHeader from "./GreetingHeader"; // 새로 만들 컴포넌트
+import GreetingHeader from "./GreetingHeader"; /**
+ * Renders the create-post page for an authenticated user.
+ *
+ * Redirects to "/login" when no authenticated user is present. When authenticated,
+ * displays a greeting header and a create-post form populated with the user's name and id.
+ *
+ * @returns A JSX element containing the page layout with GreetingHeader and CreatePostForm.
+ */
 
 export default async function CreatePage() {
   const session = await auth();

@@ -3,7 +3,11 @@
 import { useActionState } from "react";
 import { authenticate, googleLogin } from "@/actions/Auth"; // 작성한 서버 액션 import
 import Link from "next/link";
-import Image from "next/image"; // 로고 이미지용 (없으면 텍스트로 대체 가능)
+import Image from "next/image"; /**
+ * Render the login page containing email/password and Google authentication forms, per-field error displays, and links for password recovery and signup.
+ *
+ * @returns The React element representing the login page UI.
+ */
 
 export default function LoginPage() {
   // useActionState: React 19의 폼 상태 관리 훅

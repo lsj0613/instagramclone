@@ -6,7 +6,12 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
-// 이 컴포넌트는 서버에서 데이터를 가져오는 역할만 수행합니다.
+/**
+ * Loads post data by ID and renders the post detail view; triggers a 404 page if the post is not found.
+ *
+ * @param params - A promise resolving to an object containing the route `id` string.
+ * @returns The JSX element rendering the PostDetailView populated with the fetched post data.
+ */
 export default async function PostDetailPage({ params }: Props) {
   const { id } = await params;
   const response = await getPostById(id);

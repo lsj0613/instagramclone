@@ -1,6 +1,14 @@
 import { auth, signOut } from "@/auth"; // auth.ts 경로 확인
 import Link from "next/link";
 
+/**
+ * Render the homepage with a session-aware header and main content.
+ *
+ * The header displays the authenticated user's name and a logout form when a session exists;
+ * otherwise it shows a link to the login page. The main area contains the page title and placeholder text for feed content.
+ *
+ * @returns A React element for the homepage with conditional header controls based on session state.
+ */
 export default async function Home() {
   // 1. 서버에서 세션 정보 가져오기
   const session = await auth();
