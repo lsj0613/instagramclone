@@ -1,15 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form"; // react-hook-form이 없다면 설치 필요, 여기서는 기본 상태관리로 구현 가능하나 편의상 상태관리로 구현
-import { createPost } from "@/lib/actions/CreatePost"; //
+// import { useForm } from "react-hook-form";
+import { createPost } from "@/lib/actions/CreatePost";
 import { useRouter } from "next/navigation";
 
 interface CreatePostFormProps {
   userId: string;
+  username: string; // [추가] 리다이렉트를 위해 유저네임 받기
 }
 
-export default function CreatePostForm({ userId }: CreatePostFormProps) {
+export default function CreatePostForm({
+  userId,
+  username,
+}: CreatePostFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,15 +21,12 @@ export default function CreatePostForm({ userId }: CreatePostFormProps) {
   // 폼 상태 관리
   const [caption, setCaption] = useState("");
   const [location, setLocation] = useState("");
-  // 이미지 URL 입력을 위한 상태 (배열)
   const [imageUrls, setImageUrls] = useState<string[]>([""]);
 
-  // 이미지 URL 입력 필드 추가
   const addImageField = () => {
     setImageUrls([...imageUrls, ""]);
   };
 
-  // 이미지 URL 입력 값 변경
   const handleImageChange = (index: number, value: string) => {
     const newImages = [...imageUrls];
     newImages[index] = value;
@@ -37,7 +38,6 @@ export default function CreatePostForm({ userId }: CreatePostFormProps) {
     setIsSubmitting(true);
     setError(null);
 
-    // 빈 URL 제거 및 유효성 검사 준비
     const validImages = imageUrls.filter((url) => url.trim() !== "");
 
     if (validImages.length === 0) {
@@ -47,19 +47,19 @@ export default function CreatePostForm({ userId }: CreatePostFormProps) {
     }
 
     try {
-      // 서버 액션 호출
       const result = await createPost({
-        author: userId, // 서버에서 받은 ID 자동 주입
+        author: userId,
         caption: caption,
         location: location,
         images: validImages,
       });
 
       if (result.success) {
-        // 성공 시 메인 피드나 해당 게시물로 이동
         alert("게시물이 성공적으로 작성되었습니다!");
-        router.push("/"); 
-        router.refresh(); // 데이터 갱신
+
+        // [수정] 프로필 페이지로 이동
+        router.push(`/profile/${username}`);
+        router.refresh();
       } else {
         setError(result.error);
       }
@@ -71,7 +71,12 @@ export default function CreatePostForm({ userId }: CreatePostFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-lg shadow-sm border">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6 bg-white p-6 rounded-lg shadow-sm border"
+    >
+      {/* ... 기존 UI 코드 동일 ... */}
+
       {/* 에러 메시지 표시 */}
       {error && (
         <div className="p-3 bg-red-100 text-red-600 rounded-md text-sm">
@@ -79,7 +84,7 @@ export default function CreatePostForm({ userId }: CreatePostFormProps) {
         </div>
       )}
 
-      {/* 이미지 URL 입력 (임시) */}
+      {/* 이미지 URL 입력 */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           이미지 URL (최소 1개)
@@ -92,7 +97,7 @@ export default function CreatePostForm({ userId }: CreatePostFormProps) {
               value={url}
               onChange={(e) => handleImageChange(index, e.target.value)}
               className="flex-1 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required={index === 0} // 첫 번째 필드는 필수
+              required={index === 0}
             />
           </div>
         ))}
@@ -107,7 +112,10 @@ export default function CreatePostForm({ userId }: CreatePostFormProps) {
 
       {/* 문구 입력 */}
       <div>
-        <label htmlFor="caption" className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          htmlFor="caption"
+          className="block text-sm font-medium text-gray-700 mb-2"
+        >
           문구 입력
         </label>
         <textarea
@@ -125,7 +133,10 @@ export default function CreatePostForm({ userId }: CreatePostFormProps) {
 
       {/* 위치 입력 */}
       <div>
-        <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
+        <label
+          htmlFor="location"
+          className="block text-sm font-medium text-gray-700 mb-2"
+        >
           위치 추가 (선택)
         </label>
         <input
