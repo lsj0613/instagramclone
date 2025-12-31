@@ -1,25 +1,33 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 // 1. 인터페이스 정의
-export interface IUser extends Document {
+export interface IUser {
+  _id?: string | mongoose.Types.ObjectId; // DB에서 가져온 경우 대비
   username: string;
   email: string;
   password?: string;
   profileImage: string;
   bio: string;
-  followers: mongoose.Types.ObjectId[];
-  following: mongoose.Types.ObjectId[];
+  followers: (string | mongoose.Types.ObjectId)[];
+  following: (string | mongoose.Types.ObjectId)[];
   settings: {
     isPrivate: boolean;
     receiveNotifications: boolean;
     theme: 'light' | 'dark' | 'system';
   };
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+// 2. Mongoose Document 인터페이스 (DB 조작 전용)
+// IUser를 상속받아 Document의 메서드(save, populate 등)를 포함시킵니다.
+export interface IUserDocument extends IUser, Document {
+  // Document 상속 시 _id 타입을 명확히 재정의해주는 것이 좋습니다.
+  _id: mongoose.Types.ObjectId; 
 }
 
 // 2. 스키마 정의
-const UserSchema = new Schema<IUser>(
+const UserSchema = new Schema<IUserDocument>(
   {
     username: {
       type: String,
@@ -77,6 +85,6 @@ const UserSchema = new Schema<IUser>(
 
 
 // 4. 모델 생성 및 수출 (Next.js 싱글톤 패턴)
-const User = (mongoose.models.User as Model<IUser>) || mongoose.model<IUser>('User', UserSchema);
+const User = (mongoose.models.User as Model<IUserDocument>) || mongoose.model<IUserDocument>('User', UserSchema);
 
 export default User;

@@ -22,7 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const { email, password } = validatedFields.data;
 
           await connectDB(); //
-          const user = await User.findOne({ email });
+          const user = await User.findOne({ email }).lean();
 
           // 2. 사용자 존재 및 비밀번호 일치 여부 확인
           if (!user || !user.password) return null;
