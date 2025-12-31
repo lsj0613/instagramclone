@@ -1,4 +1,4 @@
-import { getPostById } from "@/lib/actions/GetPostById";
+import { getPostById } from "@/actions/GetPostById";
 import { notFound } from "next/navigation";
 import PostDetailView from "./PostDetailView"; // 클라이언트 컴포넌트 import
 

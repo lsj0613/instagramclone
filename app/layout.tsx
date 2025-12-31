@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
-import SessionProvider from "@/components/SessionProvider"; //
+import Sidebar from "@/components/Sidebar/Sidebar";
+import SessionProvider from "@/components/common/SessionProvider"; //
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,7 +29,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SessionProvider>
+        <SessionProvider >
           <div className="flex h-screen w-full overflow-hidden bg-white">
             {/* 1. 사이드바 (fixed 포지션이므로 별도 공간 차지 X, 화면 위에 뜸) */}
             <Sidebar />

@@ -1,6 +1,6 @@
 import { auth } from "@/auth"; //
-import { getUserByUsername } from "@/lib/actions/GetUserByUsername"; //
-import { getPostsByUsername } from "@/lib/actions/GetPostsByUsername"; // 위에서 만든 새 액션
+import { getUserByUsername } from "@/actions/GetUserByUsername"; //
+import { getPostsByUsername } from "@/actions/GetPostsByUsername"; // 위에서 만든 새 액션
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -28,7 +28,7 @@ export default async function ProfilePage({ params }: Props) {
 
   const user = userRes.data;
   const posts = postsRes.data || [];
-  
+
   // 4. 본인 프로필인지 확인 (세션의 유저네임과 현재 페이지 유저네임 비교)
   // auth.ts 설정을 보면 session.user.name에 username이 들어갑니다.
   const isOwner = session?.user?.name === user.username;
@@ -37,7 +37,6 @@ export default async function ProfilePage({ params }: Props) {
     <div className="max-w-4xl mx-auto pt-8 px-4">
       {/* --- 프로필 헤더 --- */}
       <header className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-20 border-b border-gray-200 pb-10 mb-8">
-        
         {/* 프로필 이미지 */}
         <div className="relative w-32 h-32 md:w-40 md:h-40 flex-shrink-0">
           <Image
@@ -51,18 +50,20 @@ export default async function ProfilePage({ params }: Props) {
         </div>
 
         {/* 유저 정보 영역 */}
-        <div className="flex flex-col gap-4 flex-grow w-full md:w-auto">
+        <div className="flex flex-col gap-4 grow w-full md:w-auto">
           {/* 1열: 아이디 & 버튼 */}
           <div className="flex flex-col md:flex-row items-center gap-4">
-            <h1 className="text-xl font-normal text-gray-800">{user.username}</h1>
-            
+            <h1 className="text-xl font-normal text-gray-800">
+              {user.username}
+            </h1>
+
             {/* 본인이면 '프로필 편집', 남이면 '팔로우' 버튼 표시 (여기선 편집만 구현) */}
             {isOwner ? (
               <button className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold transition text-black">
                 프로필 편집
               </button>
             ) : (
-               <button className="px-6 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition">
+              <button className="px-6 py-1.5 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition">
                 팔로우
               </button>
             )}
@@ -74,10 +75,12 @@ export default async function ProfilePage({ params }: Props) {
               게시물 <span className="font-semibold">{posts.length}</span>
             </div>
             <div>
-              팔로워 <span className="font-semibold">{user.followers.length}</span>
+              팔로워{" "}
+              <span className="font-semibold">{user.followers.length}</span>
             </div>
             <div>
-              팔로잉 <span className="font-semibold">{user.following.length}</span>
+              팔로잉{" "}
+              <span className="font-semibold">{user.following.length}</span>
             </div>
           </div>
 
@@ -96,25 +99,28 @@ export default async function ProfilePage({ params }: Props) {
         {posts.length === 0 ? (
           // 게시물이 없을 때
           <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-             <div className="w-16 h-16 border-2 border-black rounded-full flex items-center justify-center mb-4">
-                📷
-             </div>
-             <h2 className="text-xl font-bold text-black mb-2">사진 공유</h2>
-             <p>사진을 공유하면 회원님의 프로필에 표시됩니다.</p>
-             {/* 본인일 경우 글쓰기 링크 제공 */}
-             {isOwner && (
-               <Link href="/create" className="mt-4 text-blue-500 font-semibold hover:underline">
-                 첫 게시물 작성하기
-               </Link>
-             )}
+            <div className="w-16 h-16 border-2 border-black rounded-full flex items-center justify-center mb-4">
+              📷
+            </div>
+            <h2 className="text-xl font-bold text-black mb-2">사진 공유</h2>
+            <p>사진을 공유하면 회원님의 프로필에 표시됩니다.</p>
+            {/* 본인일 경우 글쓰기 링크 제공 */}
+            {isOwner && (
+              <Link
+                href="/create"
+                className="mt-4 text-blue-500 font-semibold hover:underline"
+              >
+                첫 게시물 작성하기
+              </Link>
+            )}
           </div>
         ) : (
           // 게시물이 있을 때 (3열 그리드)
           <div className="grid grid-cols-3 gap-1 md:gap-4">
             {posts.map((post) => (
-              <Link 
-                key={post.id} 
-                href={`/post/${post.id}`} 
+              <Link
+                key={post.id}
+                href={`/post/${post.id}`}
                 className="relative aspect-square group cursor-pointer block bg-gray-100"
               >
                 <Image

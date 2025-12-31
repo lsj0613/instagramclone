@@ -4,7 +4,7 @@
 import { signIn } from "@/auth";
 import { SignupSchema } from "@/lib/validation";
 import connectDB from "@/lib/db";
-import User from "@/lib/models/User.model";
+import User from "@/models/User.model";
 import bcrypt from "bcrypt";
 import { AuthError } from "next-auth";
 
@@ -39,8 +39,8 @@ export async function signup(
     await connectDB();
 
     // 2. 중복 사용자 확인
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { username: username.toLowerCase() }] 
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username: username.toLowerCase() }],
     });
 
     if (existingUser) {
@@ -64,13 +64,12 @@ export async function signup(
       password,
       redirectTo: "/", // 성공 시 홈 화면으로 이동
     });
-
   } catch (error) {
     // Auth.js의 리다이렉트 에러는 catch 문에서 다시 던져야 정상적으로 동작합니다.
     if (error instanceof AuthError) {
       return { message: "회원가입 후 로그인 중 오류가 발생했습니다." };
     }
-    
+
     // 리다이렉트 처리를 위한 에러는 다시 던집니다.
     throw error;
   }

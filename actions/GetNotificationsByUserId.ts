@@ -2,8 +2,8 @@
 "use server";
 
 import connectDB from "@/lib/db";
-import Notification from "@/lib/models/Notification.model";
-import "@/lib/models/User.model"; // populate를 위해 User 모델 로드 확인
+import Notification from "@/models/Notification.model";
+import "@/models/User.model"; // populate를 위해 User 모델 로드 확인
 
 interface NotificationResponse {
   success: boolean;
@@ -11,7 +11,9 @@ interface NotificationResponse {
   error?: string;
 }
 /* 알림 발생자 정보가 populated된 notification을 반환 */
-export async function getNotifications(userId: string): Promise<NotificationResponse> {
+export async function getNotifications(
+  userId: string
+): Promise<NotificationResponse> {
   try {
     await connectDB();
 
@@ -31,7 +33,10 @@ export async function getNotifications(userId: string): Promise<NotificationResp
       data: JSON.stringify(notifications),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "알림 조회 중 오류가 발생했습니다.";
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "알림 조회 중 오류가 발생했습니다.";
     return {
       success: false,
       error: errorMessage,

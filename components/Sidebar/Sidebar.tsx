@@ -15,8 +15,8 @@ import {
   Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import Notificationlist from "./Sidebar/Notificationlist";
-import { getNotifications } from "@/lib/actions/GetNotificationsByUserId";
+import Notificationlist from "./Notificationlist";
+import { getNotifications } from "@/actions/GetNotificationsByUserId";
 import { SerializedNotification } from "@/components/Sidebar/Notification";
 
 // NAV_ITEMS를 컴포넌트 내부로 이동하거나 동적으로 처리해야 함 (username 때문)
@@ -26,7 +26,7 @@ const BASE_NAV_ITEMS = [
   { name: "검색", href: "#", icon: Search, type: "search" },
   { name: "알림", href: "#", icon: Heart, type: "notifications" },
   { name: "메시지", href: "/messages", icon: MessageCircle, type: "link" },
-  { name: "만들기", href: "/createpost", icon: PlusSquare, type: "link" }, 
+  { name: "만들기", href: "/createpost", icon: PlusSquare, type: "link" },
   // 프로필은 아래 컴포넌트 내부에서 처리
   { name: "설정", href: "/settings", icon: Settings, type: "link" },
 ];
@@ -39,7 +39,9 @@ export default function Sidebar() {
   >("none");
 
   // 데이터 상태 관리
-  const [notifications, setNotifications] = useState<SerializedNotification[]>([]);
+  const [notifications, setNotifications] = useState<SerializedNotification[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   // 세션에서 유저 ID 가져오기 (없으면 null 처리)
@@ -87,12 +89,12 @@ export default function Sidebar() {
   // 3. 네비게이션 아이템 재구성 (프로필 링크 동적 할당)
   const navItems = [
     ...BASE_NAV_ITEMS.slice(0, 5), // 홈 ~ 만들기
-    { 
-      name: "프로필", 
+    {
+      name: "프로필",
       // 유저네임이 있으면 해당 프로필로, 없으면 로그인으로
-      href: currentUsername ? `/profile/${currentUsername}` : "/login", 
-      icon: User, 
-      type: "link" 
+      href: currentUsername ? `/profile/${currentUsername}` : "/login",
+      icon: User,
+      type: "link",
     },
     ...BASE_NAV_ITEMS.slice(5), // 설정
   ];
@@ -124,7 +126,8 @@ export default function Sidebar() {
 
           {/* 메뉴 리스트 */}
           <ul className="flex flex-1 flex-col items-center gap-4">
-            {navItems.map((item) => { // navItems 변수 사용
+            {navItems.map((item) => {
+              // navItems 변수 사용
               const Icon = item.icon;
               const isActive = pathname === item.href && item.type === "link";
               const isExpanded =

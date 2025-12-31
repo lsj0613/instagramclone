@@ -1,8 +1,8 @@
 "use server";
 
 import connectDB from "@/lib/db";
-import Post from "@/lib/models/Post.model";
-import User from "@/lib/models/User.model";
+import Post from "@/models/Post.model";
+import User from "@/models/User.model";
 
 export async function getPostsByUsername(username: string) {
   try {
@@ -10,7 +10,7 @@ export async function getPostsByUsername(username: string) {
 
     // 1. 유저네임으로 유저 찾기 (ID를 알아내기 위함)
     const user = await User.findOne({ username }).select("_id");
-    
+
     if (!user) {
       return { success: false, error: "유저를 찾을 수 없습니다." };
     }
@@ -19,7 +19,7 @@ export async function getPostsByUsername(username: string) {
     // 프로필 그리드에는 이미지와 ID만 있으면 되므로 필요한 필드만 select하여 최적화
     const posts = await Post.find({ author: user._id })
       .sort({ createdAt: -1 }) // 최신순 정렬
-      .select("images _id")    // 썸네일용 이미지와 링크용 ID만 가져옴
+      .select("images _id") // 썸네일용 이미지와 링크용 ID만 가져옴
       .lean();
 
     // 3. 직렬화 (ObjectId -> string)

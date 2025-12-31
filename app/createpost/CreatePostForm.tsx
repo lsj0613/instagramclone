@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 // import { useForm } from "react-hook-form";
-import { createPost } from "@/lib/actions/CreatePost";
+import { createPost } from "@/actions/CreatePost";
 import { useRouter } from "next/navigation";
 
 interface CreatePostFormProps {
@@ -63,7 +63,7 @@ export default function CreatePostForm({
       } else {
         setError(result.error);
       }
-    } catch (err) {
+    } catch (error) {
       setError("게시물 작성 중 알 수 없는 오류가 발생했습니다.");
     } finally {
       setIsSubmitting(false);
