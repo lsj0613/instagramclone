@@ -28,8 +28,21 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Sidebar/>
-        {children}
+        {/* flex h-screen w-full: 화면 꽉 채우기 */}
+        <div className="flex h-screen w-full overflow-hidden">
+          
+          {/* 사이드바 */}
+          {/* border-r, bg-gray-50 제거함 -> 그냥 흰색 영역만 남음 */}
+          <aside className="flex-none w-64">
+            <Sidebar />
+          </aside>
+
+          {/* 메인 콘텐츠 */}
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
+          
+        </div>
       </body>
     </html>
   );

@@ -38,7 +38,7 @@ const UserSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: [true, '비밀번호는 필수입니다.'],
+      required: [false, '비밀번호는 필수입니다.'],
     },
     profileImage: {
       type: String,
