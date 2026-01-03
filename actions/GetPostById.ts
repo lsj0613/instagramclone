@@ -3,16 +3,16 @@
 
 import connectDB from "@/lib/db";
 // 관계된 모델을 참조하기 위해 User 모델도 임포트가 필요할 수 있습니다.
-import "@/models/User.model";
+import "@/models/user.model";
 
-import Post, { IPostPopulated } from "@/models/Post.model";
+import Post, { IPost } from "@/models/post.model";
 
 // 1. IPost를 기반으로 하되, author가 객체로 변환된 타입을 정의합니다.
 // Omit을 사용하여 기존 author(ObjectId)를 제거하고 새로운 타입을 주입합니다.
 
 interface PostResponse {
   success: boolean;
-  data?: IPostPopulated; // any 대신 명확한 타입을 지정
+  data?: IPost; // any 대신 명확한 타입을 지정
   error?: string;
 }
 /* postId를 받아 작성자 정보가 populated된 post 정보를 반환 */

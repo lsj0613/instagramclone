@@ -4,7 +4,7 @@
 import { signIn } from "@/auth";
 import { SignupSchema } from "@/lib/validation";
 import connectDB from "@/lib/db";
-import User from "@/models/User.model";
+import User from "@/models/user.model";
 import bcrypt from "bcrypt";
 import { AuthError } from "next-auth";
 

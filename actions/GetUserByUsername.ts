@@ -1,7 +1,7 @@
 "use server";
 
 import connectDB from "@/lib/db";
-import User from "@/models/User.model";
+import User from "@/models/user.model";
 
 /**
  * 클라이언트 컴포넌트로 전달하기 위해 직렬화된 유저 타입 정의

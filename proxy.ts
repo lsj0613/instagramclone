@@ -6,7 +6,7 @@ export default auth((req) => {
   const { nextUrl } = req;
 
   // 인증이 필요한 경로 설정 (예: /post, /profile)
-  const isProtected = nextUrl.pathname.startsWith("/post") || nextUrl.pathname.startsWith("/profile");
+  const isProtected = nextUrl.pathname.startsWith("/createpost") || nextUrl.pathname.startsWith("/profile")|| nextUrl.pathname.startsWith("/message");
 
   if (isProtected && !isLoggedIn) {
     return Response.redirect(new URL("/login", nextUrl));

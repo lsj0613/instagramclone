@@ -5,6 +5,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 // 1. 순수 데이터 구조만 정의 (Document 상속 X)
 export interface IPostBase {
+  likes: string[] | mongoose.Types.ObjectId[];
   images: string[];
   caption: string;
   location?: string;
@@ -13,7 +14,7 @@ export interface IPostBase {
 }
 
 // 2. Mongoose 모델용 (서버 내부 사용)
-export interface IPost extends IPostBase, Document {
+export interface IPostDocument extends IPostBase, Document {
   author: mongoose.Types.ObjectId;
   likes: mongoose.Types.ObjectId[];
 }
@@ -23,7 +24,7 @@ export interface IPost extends IPostBase, Document {
 // src/lib/actions/post.actions.ts
 
 // 3. 클라이언트 전달용 (Omit 없이 Base 기반으로 확장)
-export interface IPostPopulated extends IPostBase {
+export interface IPost extends IPostBase {
   _id: string; // 여기서 자유롭게 string으로 정의 가능
   author: {
     _id: string;
@@ -35,7 +36,7 @@ export interface IPostPopulated extends IPostBase {
 }
 
 // 2. Post 스키마 정의
-const PostSchema = new Schema<IPost>(
+const PostSchema = new Schema<IPostDocument>(
   {
     author: {
       type: Schema.Types.ObjectId,
@@ -69,6 +70,6 @@ const PostSchema = new Schema<IPost>(
 );
 
 // 3. 모델 생성 및 수출 (Next.js 싱글톤 패턴)
-const Post: Model<IPost> = mongoose.models.Post || mongoose.model<IPost>('Post', PostSchema);
+const Post: Model<IPostDocument> = mongoose.models.Post || mongoose.model<IPostDocument>('Post', PostSchema);
 
 export default Post;

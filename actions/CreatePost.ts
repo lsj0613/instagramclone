@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import connectDB from "@/lib/db";
-import Post from "@/models/Post.model";
+import Post from "@/models/post.model";
 import { PostCreateSchema, PostCreateInput } from "@/lib/validation";
 
 // 반환 값에 대한 타입 정의
@@ -18,7 +18,7 @@ interface ErrorResponse {
 
 type ActionResponse = SuccessResponse | ErrorResponse;
 
-/*PostCreateInput을 받아 새 Post를 db에 생성하고 그 결과를 반환 */
+/*PostCreateInput을 받아 새 Post를 db에 생성하고 해당 Post 객체를 반환 */
 export async function createPost(
   input: PostCreateInput
 ): Promise<ActionResponse> {
@@ -38,7 +38,7 @@ export async function createPost(
     });
 
     // 3. Next.js 16 캐시 무효화
-    revalidatePath("/app/explore");
+    revalidatePath("/app/profile");
 
     return {
       success: true,

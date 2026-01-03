@@ -12,7 +12,7 @@ export default async function CreatePage() {
 
   const userName = session.user.name || "사용자";
   const userId = session.user.id;
-
+  
   return (
     <div className="max-w-xl mx-auto mt-10 p-4">
       {/* 클라이언트 컴포넌트로 분리하여 Hydration 오류 방지 */}

@@ -12,6 +12,7 @@ export default function GreetingHeader({ userName }: { userName: string }) {
       "멋진 사진을 공유해 볼까요?",
       "오늘의 기분을 사진으로 표현해 보세요."
     ];
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGreeting(greetings[Math.floor(Math.random() * greetings.length)]);
   }, []);
 

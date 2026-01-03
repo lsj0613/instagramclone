@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { IPostPopulated } from "@/models/Post.model";
+import {  IPost } from "@/models/post.model";
 
 // 서버 컴포넌트로부터 전달받을 props의 타입을 정의합니다.
 interface Props {
-  post: IPostPopulated;
+  post: IPost;
 }
 
 export default function PostDetailView({ post }: Props) {

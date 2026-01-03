@@ -4,7 +4,6 @@ import Link from "next/link";
 export default async function Home() {
   // 1. 서버에서 세션 정보 가져오기
   const session = await auth();
-
   return (
     <div className="p-8">
       {/* 상단 헤더 영역 */}
@@ -15,7 +14,7 @@ export default async function Home() {
             <span className="text-gray-700 font-medium">
               {session.user?.name || "사용자"}님 환영합니다
             </span>
-            
+
             {/* 로그아웃 처리 (NextAuth v5 Server Action) */}
             <form
               action={async () => {
@@ -23,8 +22,8 @@ export default async function Home() {
                 await signOut();
               }}
             >
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition"
               >
                 로그아웃
@@ -33,8 +32,8 @@ export default async function Home() {
           </div>
         ) : (
           // 로그인 안 된 경우: 로그인 버튼 표시
-          <Link 
-            href="/login" 
+          <Link
+            href="/login"
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition"
           >
             로그인
