@@ -107,7 +107,7 @@ export default async function ProfilePage({ params }: Props) {
             {/* 본인일 경우 글쓰기 링크 제공 */}
             {isOwner && (
               <Link
-                href="/create"
+                href="/createpost"
                 className="mt-4 text-blue-500 font-semibold hover:underline"
               >
                 첫 게시물 작성하기
