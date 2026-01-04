@@ -4,6 +4,7 @@ import Link from "next/link";
 export default async function Home() {
   // 1. 서버에서 세션 정보 가져오기
   const session = await auth();
+  console.log(session);
   return (
     <div className="p-8">
       {/* 상단 헤더 영역 */}

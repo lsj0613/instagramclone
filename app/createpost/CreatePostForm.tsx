@@ -6,12 +6,10 @@ import { createPost } from "@/actions/CreatePost";
 import { useRouter } from "next/navigation";
 
 interface CreatePostFormProps {
-  userId: string;
   username: string; // [추가] 리다이렉트를 위해 유저네임 받기
 }
 
 export default function CreatePostForm({
-  userId,
   username,
 }: CreatePostFormProps) {
   const router = useRouter();
@@ -48,7 +46,6 @@ export default function CreatePostForm({
 
     try {
       const result = await createPost({
-        author: userId,
         caption: caption,
         location: location,
         images: validImages,

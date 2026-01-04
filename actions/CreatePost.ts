@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import connectDB from "@/lib/db";
 import Post from "@/models/post.model";
 import { PostCreateSchema, PostCreateInput } from "@/lib/validation";
+import { useSession } from "next-auth/react";
+import { auth } from "@/auth";
 
 // 반환 값에 대한 타입 정의
 interface SuccessResponse {
@@ -23,6 +25,8 @@ export async function createPost(
   input: PostCreateInput
 ): Promise<ActionResponse> {
   try {
+    const session = await auth();
+    const currentUser = session?.user?.id;
     await connectDB();
 
     // 1. 데이터 검증 (입력값이 PostCreateInput 형식을 따르는지 확인)
@@ -31,7 +35,7 @@ export async function createPost(
     // 2. 데이터베이스 저장
     // Mongoose 모델 생성 시 타입을 명시적으로 지정
     const newPost = await Post.create({
-      author: validatedData.author,
+      author: currentUser,
       images: validatedData.images,
       caption: validatedData.caption,
       location: validatedData.location,
