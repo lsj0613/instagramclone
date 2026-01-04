@@ -2,22 +2,22 @@
 
 import { useState, useOptimistic, useTransition } from "react";
 import Image from "next/image";
-import { useSession } from "next-auth/react";
 import { IPost } from "@/models/post.model";
-import { toggleLikeAction } from "@/actions/LikePost";
-import { cn } from "@/lib/utils"; // cn 유틸리티가 있다면 사용, 없다면 템플릿 리터럴로 대체 가능
+import { toggleLikeAction } from "@/actions/ToggleLike";
 
 interface Props {
   post: IPost;
+  userId?: string; // 부모로부터 받을 userId 추가
 }
 
-export default function PostDetailView({ post }: Props) {
-  const { data: session } = useSession();
+export default function PostDetailView({ post, userId }: Props) {
+  // const { data: session } = useSession(); // 제거
   const [isPending, startTransition] = useTransition();
   const [isError, setIsError] = useState(false);
 
-  const currentUserId = session?.user?.id;
-  const isAuthor = currentUserId === post.author._id;
+  // 세션 훅 대신 Props로 받은 userId 사용
+  const currentUserId = userId;
+  const isAuthor = currentUserId === post.author._id.toString();
 
   // 1. 낙관적 업데이트
   const [optimisticLikes, addOptimisticLike] = useOptimistic(

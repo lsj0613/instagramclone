@@ -1,6 +1,7 @@
 import { getPostById } from "@/actions/GetPostById";
 import { notFound } from "next/navigation";
 import PostDetailView from "./PostDetailView"; // 클라이언트 컴포넌트 import
+import { auth } from "@/auth";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -10,11 +11,11 @@ interface Props {
 export default async function PostDetailPage({ params }: Props) {
   const { id } = await params;
   const response = await getPostById(id);
-
+  const session = await auth();
   if (!response.success || !response.data) {
     notFound();
   }
 
   // 데이터를 클라이언트 컴포넌트에 props로 전달합니다.
-  return <PostDetailView post={response.data} />;
+  return <PostDetailView post={response.data} userId={session?.user?.id}/>;
 }

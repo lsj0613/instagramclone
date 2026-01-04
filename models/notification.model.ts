@@ -30,6 +30,11 @@ const NotificationSchema = new Schema<INotificationDocument>(
 // 최신 알림 조회 성능을 위한 복합 인덱스
 NotificationSchema.index({ receiver: 1, createdAt: -1 });
 NotificationSchema.index({ receiver: 1, isRead: 1, createdAt: -1 });
+// models/notification.model.ts 수정 제안
+NotificationSchema.index(
+  { issuer: 1, receiver: 1, type: 1, postId: 1 },
+  { unique: true, partialFilterExpression: { type: 'LIKE' } } // 좋아요 알림은 중복 불가
+);
 
 const Notification: Model<INotificationDocument> = 
   mongoose.models.Notification || mongoose.model<INotificationDocument>('Notification', NotificationSchema);
