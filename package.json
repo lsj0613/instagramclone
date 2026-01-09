@@ -10,7 +10,9 @@
     "seed": "npx tsx --env-file=.env.local seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.965.0",
     "bcrypt": "^6.0.0",
+    "cloudinary": "^2.8.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.562.0",

@@ -2,9 +2,17 @@ import { z } from 'zod';
 
 export const PostCreateSchema = z.object({
   caption: z.string().max(2200, "본문은 2200자 이내여야 합니다.").optional(),
-  images: z.array(z.string().url("올바른 이미지 URL 형식이어야 합니다."))
-    .min(1, "최소 한 장의 이미지가 필요합니다."),
   location: z.string().optional(),
+  
+  // [중요] string() -> instanceOf(File)로 변경
+  images: z
+    .array(z.instanceof(File, { message: "이미지 파일이 필요합니다." }))
+    .min(1, "최소 한 장의 이미지가 필요합니다.")
+    // 추가 검증: 파일이 비어있는지, 이미지 타입인지 체크
+    .refine((files) => files.every((file) => file.size > 0), "빈 파일은 업로드할 수 없습니다.")
+    .refine((files) => files.every((file) => file.type.startsWith("image/")), "이미지 파일만 가능합니다.")
+    // (선택) 용량 제한: 5MB 이하
+    .refine((files) => files.every((file) => file.size <= 5 * 1024 * 1024), "파일 크기는 5MB 이하여야 합니다."),
 });
 
 // Zod 스키마로부터 타입 추론

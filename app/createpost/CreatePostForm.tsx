@@ -1,159 +1,235 @@
 "use client";
 
-import { useState } from "react";
-// import { useForm } from "react-hook-form";
-import { createPost } from "@/actions/CreatePost";
-import { useRouter } from "next/navigation";
+import { useState, useRef } from "react";
+import { createPost, createPostErrorResponse } from "@/actions/CreatePost";
+import ImagePreview from "./ImagePreview";
+import { 
+  Loader2, 
+  MapPin, 
+  ImagePlus, 
+  XCircle, 
+  FileText 
+} from "lucide-react"; // 아이콘 임포트
 
 interface CreatePostFormProps {
-  username: string; // [추가] 리다이렉트를 위해 유저네임 받기
+  username: string;
 }
 
-export default function CreatePostForm({
-  username,
-}: CreatePostFormProps) {
-  const router = useRouter();
+export default function CreatePostForm({ username }: CreatePostFormProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // UI 상태 관리
+  const [files, setFiles] = useState<File[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<createPostErrorResponse | null>(null);
 
-  // 폼 상태 관리
-  const [caption, setCaption] = useState("");
-  const [location, setLocation] = useState("");
-  const [imageUrls, setImageUrls] = useState<string[]>([""]);
-
-  const addImageField = () => {
-    setImageUrls([...imageUrls, ""]);
-  };
-
-  const handleImageChange = (index: number, value: string) => {
-    const newImages = [...imageUrls];
-    newImages[index] = value;
-    setImageUrls(newImages);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsSubmitting(true);
-    setError(null);
+    const formData = new FormData(e.currentTarget);
+    files.forEach((file) => {
+      formData.append("images", file);
+    });
+    const response = await createPost(formData);
+    setError(response);
+    setIsSubmitting(false);
+  }
 
-    const validImages = imageUrls.filter((url) => url.trim() !== "");
+  const handleFiles = (newFiles: FileList | null) => {
+    if (!newFiles) return;
+    const validFiles = Array.from(newFiles).filter((file) =>
+      file.type.startsWith("image/")
+    );
+    if (validFiles.length === 0) return;
+    setFiles((prev) => [...prev, ...validFiles]);
+  };
 
-    if (validImages.length === 0) {
-      setError("최소 하나의 이미지 URL을 입력해야 합니다.");
-      setIsSubmitting(false);
-      return;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleFiles(e.target.files);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
+  };
 
-    try {
-      const result = await createPost({
-        caption: caption,
-        location: location,
-        images: validImages,
-      });
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
 
-      if (result.success) {
-        alert("게시물이 성공적으로 작성되었습니다!");
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
 
-        // [수정] 프로필 페이지로 이동
-        router.push(`/profile/${username}`);
-        router.refresh();
-      } else {
-        setError(result.error);
-      }
-    } catch (error) {
-      setError("게시물 작성 중 알 수 없는 오류가 발생했습니다.");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFiles(e.dataTransfer.files);
+  };
+
+  const removeImage = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-6 bg-white p-6 rounded-lg shadow-sm border"
-    >
-      {/* ... 기존 UI 코드 동일 ... */}
-
-      {/* 에러 메시지 표시 */}
-      {error && (
-        <div className="p-3 bg-red-100 text-red-600 rounded-md text-sm">
-          {error}
+    <div className="max-w-xl mx-auto py-8">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 space-y-8"
+      >
+        <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-gray-900">새 게시물 만들기</h2>
+            <p className="text-sm text-gray-500">당신의 특별한 순간을 공유해보세요.</p>
         </div>
-      )}
 
-      {/* 이미지 URL 입력 */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          이미지 URL (최소 1개)
-        </label>
-        {imageUrls.map((url, index) => (
-          <div key={index} className="flex mb-2">
+        {/* 전역 에러 메시지 */}
+        {error?.message && (
+          <div
+            className="flex items-center gap-2 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium animate-pulse"
+            aria-live="polite"
+          >
+            <XCircle size={18} />
+            {error.message}
+          </div>
+        )}
+
+        {/* 파일 업로드 영역 */}
+        <div className="space-y-4">
+          <label className="block text-sm font-semibold text-gray-700">
+            사진 업로드 <span className="text-blue-500 text-xs font-normal">(필수)</span>
+          </label>
+
+          <div
+            onDragOver={onDragOver}
+            onDragLeave={onDragLeave}
+            onDrop={onDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`
+              relative group flex flex-col items-center justify-center p-10 border-2 border-dashed rounded-2xl transition-all duration-300 cursor-pointer
+              ${
+                isDragging
+                  ? "border-blue-500 bg-blue-50/50 scale-[1.01]"
+                  : "border-gray-200 hover:border-blue-400 hover:bg-gray-50"
+              }
+              ${error?.errors?.images ? "border-red-300 bg-red-50" : ""}
+            `}
+          >
             <input
-              type="url"
-              placeholder="https://example.com/image.jpg"
-              value={url}
-              onChange={(e) => handleImageChange(index, e.target.value)}
-              className="flex-1 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required={index === 0}
+              type="file"
+              name="images"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              multiple
+              className="hidden"
+            />
+            
+            {/* 아이콘 및 안내 문구 */}
+            <div className="flex flex-col items-center gap-3 text-gray-400 group-hover:text-blue-500 transition-colors">
+              <div className="p-3 bg-gray-50 rounded-full group-hover:bg-blue-100 transition-colors">
+                <ImagePlus size={32} />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-700">
+                  클릭하여 업로드하거나
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  이미지를 여기로 끌어오세요
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {error?.errors?.images && (
+            <p className="text-xs text-red-500 font-medium pl-1">
+              * {error.errors.images}
+            </p>
+          )}
+
+          {/* 미리보기 영역 (Grid Layout 개선) */}
+          {files.length > 0 && (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-4">
+              {files.map((file, index) => (
+                <ImagePreview
+                  key={file.name + file.size + index}
+                  file={file}
+                  onRemove={() => removeImage(index)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 문구 입력 */}
+        <div className="space-y-2">
+          <label
+            htmlFor="caption"
+            className="block text-sm font-semibold text-gray-700"
+          >
+            문구 입력
+          </label>
+          <div className="relative">
+            <div className="absolute top-3 left-3 text-gray-400">
+                <FileText size={18} />
+            </div>
+            <textarea
+              id="caption"
+              name="caption"
+              rows={4}
+              className={`
+                w-full pl-10 p-3 bg-gray-50 border rounded-xl outline-none transition-all resize-none
+                focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                ${error?.errors?.caption ? "border-red-300 focus:border-red-500" : "border-gray-200"}
+              `}
+              placeholder="사진에 대한 설명을 적어주세요..."
             />
           </div>
-        ))}
+          {error?.errors?.caption && (
+            <p className="text-xs text-red-500 font-medium pl-1">
+              * {error.errors.caption}
+            </p>
+          )}
+        </div>
+
+        {/* 위치 입력 */}
+        <div className="space-y-2">
+          <label
+            htmlFor="location"
+            className="block text-sm font-semibold text-gray-700"
+          >
+            위치 추가 <span className="text-gray-400 text-xs font-normal">(선택)</span>
+          </label>
+          <div className="relative">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <MapPin size={18} />
+            </div>
+            <input
+              type="text"
+              id="location"
+              name="location"
+              className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              placeholder="예: 서울특별시 강남구"
+            />
+          </div>
+        </div>
+
+        {/* 제출 버튼 */}
         <button
-          type="button"
-          onClick={addImageField}
-          className="text-sm text-blue-600 hover:text-blue-800"
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full flex items-center justify-center py-3.5 px-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg active:scale-[0.99]"
         >
-          + 이미지 추가하기
+          {isSubmitting ? (
+            <>
+              <Loader2 className="animate-spin mr-2" size={20} />
+              게시 중...
+            </>
+          ) : (
+            "공유하기"
+          )}
         </button>
-      </div>
-
-      {/* 문구 입력 */}
-      <div>
-        <label
-          htmlFor="caption"
-          className="block text-sm font-medium text-gray-700 mb-2"
-        >
-          문구 입력
-        </label>
-        <textarea
-          id="caption"
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          rows={4}
-          className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="사진에 대한 설명을 적어주세요..."
-        />
-        <p className="text-right text-xs text-gray-400 mt-1">
-          {caption.length} / 2200
-        </p>
-      </div>
-
-      {/* 위치 입력 */}
-      <div>
-        <label
-          htmlFor="location"
-          className="block text-sm font-medium text-gray-700 mb-2"
-        >
-          위치 추가 (선택)
-        </label>
-        <input
-          type="text"
-          id="location"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="예: 서울특별시 강남구"
-        />
-      </div>
-
-      {/* 제출 버튼 */}
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:opacity-50 transition-colors"
-      >
-        {isSubmitting ? "게시 중..." : "공유하기"}
-      </button>
-    </form>
+      </form>
+    </div>
   );
 }
