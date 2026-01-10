@@ -6,7 +6,6 @@ import Post from "@/models/post.model";
 import { PostCreateSchema } from "@/lib/validation";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { uploadToCloudinary } from "@/lib/cloudinary";
 
 // 반환 값에 대한 타입 정의
 export interface createPostErrorResponse {
@@ -16,6 +15,7 @@ export interface createPostErrorResponse {
 
 /*formData를 받아 새 Post를 db에 생성하고 해당 Post 객체를 반환 */
 export async function createPost(
+  prevState: createPostErrorResponse | null, // 첫 번째 인자 추가
   formData: FormData
 ): Promise<createPostErrorResponse> {
   const session = await auth();
@@ -29,16 +29,16 @@ export async function createPost(
   try {
     await connectDB();
 
-    const rawImages = formData.getAll("images") as File[];
-    const validImages = rawImages.filter(
-      (file) => file.name !== "" && file.size > 0
-    );
+    const rawImages = formData.getAll("images") as string[];
+    
+    // 빈 문자열 제거 및 유효성 필터링
+    const validImages = rawImages.filter((url) => url.trim() !== "");
+
     const parsedFormData = {
       images: validImages,
       caption: formData.get("caption") as string,
       location: formData.get("location") as string,
     };
-
     // 1. 데이터 검증 (입력값이 PostCreateInput 형식을 따르는지 확인)
     const validation = PostCreateSchema.safeParse(parsedFormData);
 
@@ -58,15 +58,11 @@ export async function createPost(
 
     const validatedData = validation.data;
 
-    const uploadPromises = validatedData.images.map((file) =>
-      uploadToCloudinary(file)
-    );
-    const imageUrls = await Promise.all(uploadPromises);
     // 2. 데이터베이스 저장
     // Mongoose 모델 생성 시 타입을 명시적으로 지정
     await Post.create({
       author: currentUser,
-      images: imageUrls,
+      images: validatedData.images,
       caption: validatedData.caption,
       location: validatedData.location,
     });

@@ -16,7 +16,7 @@ export default async function CreatePage() {
     <div className="max-w-xl mx-auto mt-10 p-4">
       {/* 클라이언트 컴포넌트로 분리하여 Hydration 오류 방지 */}
       <GreetingHeader userName={userName} />
-      <CreatePostForm username={userName} />{" "}
+      <CreatePostForm />{" "}
     </div>
   );
 }

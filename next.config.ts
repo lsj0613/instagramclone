@@ -19,4 +19,11 @@ const nextConfig: NextConfig = {
   },
 };
 
+
+/**{
+        protocol: "https",
+        hostname: "res.cloudinary.com", // Cloudinary만 허용
+        pathname: "/**",
+      }
+ */
 export default nextConfig;

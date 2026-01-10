@@ -1,39 +1,36 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { createPost, createPostErrorResponse } from "@/actions/CreatePost";
+import { useState, useRef, useActionState } from "react";
+import { createPost } from "@/actions/CreatePost";
 import ImagePreview from "./ImagePreview";
-import { 
-  Loader2, 
-  MapPin, 
-  ImagePlus, 
-  XCircle, 
-  FileText 
-} from "lucide-react"; // 아이콘 임포트
+import { Loader2, MapPin, ImagePlus, XCircle, FileText } from "lucide-react"; // 아이콘 임포트
+import { uploadToCloudinaryClient } from "@/lib/upload";
 
-interface CreatePostFormProps {
-  username: string;
-}
 
-export default function CreatePostForm({ username }: CreatePostFormProps) {
+export default function CreatePostForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [state, formAction, isPending] = useActionState(createPost, null);
   // UI 상태 관리
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<createPostErrorResponse | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setIsSubmitting(true);
-    const formData = new FormData(e.currentTarget);
-    files.forEach((file) => {
-      formData.append("images", file);
-    });
-    const response = await createPost(formData);
-    setError(response);
-    setIsSubmitting(false);
+    try {
+      e.preventDefault();
+      const formData = new FormData(e.currentTarget);
+      const uploadPromises = files.map((file) =>
+        uploadToCloudinaryClient(file)
+      );
+      const imageUrls = await Promise.all(uploadPromises);
+      formData.delete("images");
+      imageUrls.forEach((url) => {
+        formData.append("images", url); // 동일한 키로 여러 번 추가
+      }); // 액션)
+      formAction(formData);
+    } catch (error) {
+      console.error("Upload failed:", error);
+      // 에러 처리 로직 (사용자 알림 등)
+    }
   }
 
   const handleFiles = (newFiles: FileList | null) => {
@@ -43,6 +40,7 @@ export default function CreatePostForm({ username }: CreatePostFormProps) {
     );
     if (validFiles.length === 0) return;
     setFiles((prev) => [...prev, ...validFiles]);
+    console.log("changed");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,25 +77,28 @@ export default function CreatePostForm({ username }: CreatePostFormProps) {
         className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 space-y-8"
       >
         <div className="space-y-2">
-            <h2 className="text-2xl font-bold text-gray-900">새 게시물 만들기</h2>
-            <p className="text-sm text-gray-500">당신의 특별한 순간을 공유해보세요.</p>
+          <h2 className="text-2xl font-bold text-gray-900">새 게시물 만들기</h2>
+          <p className="text-sm text-gray-500">
+            당신의 특별한 순간을 공유해보세요.
+          </p>
         </div>
 
         {/* 전역 에러 메시지 */}
-        {error?.message && (
+        {state?.message && (
           <div
             className="flex items-center gap-2 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium animate-pulse"
             aria-live="polite"
           >
             <XCircle size={18} />
-            {error.message}
+            {state?.message}
           </div>
         )}
 
         {/* 파일 업로드 영역 */}
         <div className="space-y-4">
           <label className="block text-sm font-semibold text-gray-700">
-            사진 업로드 <span className="text-blue-500 text-xs font-normal">(필수)</span>
+            사진 업로드{" "}
+            <span className="text-blue-500 text-xs font-normal">(필수)</span>
           </label>
 
           <div
@@ -112,7 +113,7 @@ export default function CreatePostForm({ username }: CreatePostFormProps) {
                   ? "border-blue-500 bg-blue-50/50 scale-[1.01]"
                   : "border-gray-200 hover:border-blue-400 hover:bg-gray-50"
               }
-              ${error?.errors?.images ? "border-red-300 bg-red-50" : ""}
+              ${state?.errors?.images ? "border-red-300 bg-red-50" : ""}
             `}
           >
             <input
@@ -124,7 +125,7 @@ export default function CreatePostForm({ username }: CreatePostFormProps) {
               multiple
               className="hidden"
             />
-            
+
             {/* 아이콘 및 안내 문구 */}
             <div className="flex flex-col items-center gap-3 text-gray-400 group-hover:text-blue-500 transition-colors">
               <div className="p-3 bg-gray-50 rounded-full group-hover:bg-blue-100 transition-colors">
@@ -141,9 +142,9 @@ export default function CreatePostForm({ username }: CreatePostFormProps) {
             </div>
           </div>
 
-          {error?.errors?.images && (
+          {state?.errors?.images && (
             <p className="text-xs text-red-500 font-medium pl-1">
-              * {error.errors.images}
+              * {state?.errors.images}
             </p>
           )}
 
@@ -171,7 +172,7 @@ export default function CreatePostForm({ username }: CreatePostFormProps) {
           </label>
           <div className="relative">
             <div className="absolute top-3 left-3 text-gray-400">
-                <FileText size={18} />
+              <FileText size={18} />
             </div>
             <textarea
               id="caption"
@@ -180,14 +181,18 @@ export default function CreatePostForm({ username }: CreatePostFormProps) {
               className={`
                 w-full pl-10 p-3 bg-gray-50 border rounded-xl outline-none transition-all resize-none
                 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
-                ${error?.errors?.caption ? "border-red-300 focus:border-red-500" : "border-gray-200"}
+                ${
+                  state?.errors?.caption
+                    ? "border-red-300 focus:border-red-500"
+                    : "border-gray-200"
+                }
               `}
               placeholder="사진에 대한 설명을 적어주세요..."
             />
           </div>
-          {error?.errors?.caption && (
+          {state?.errors?.caption && (
             <p className="text-xs text-red-500 font-medium pl-1">
-              * {error.errors.caption}
+              * {state.errors.caption}
             </p>
           )}
         </div>
@@ -198,7 +203,8 @@ export default function CreatePostForm({ username }: CreatePostFormProps) {
             htmlFor="location"
             className="block text-sm font-semibold text-gray-700"
           >
-            위치 추가 <span className="text-gray-400 text-xs font-normal">(선택)</span>
+            위치 추가{" "}
+            <span className="text-gray-400 text-xs font-normal">(선택)</span>
           </label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -217,10 +223,10 @@ export default function CreatePostForm({ username }: CreatePostFormProps) {
         {/* 제출 버튼 */}
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isPending}
           className="w-full flex items-center justify-center py-3.5 px-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg active:scale-[0.99]"
         >
-          {isSubmitting ? (
+          {isPending ? (
             <>
               <Loader2 className="animate-spin mr-2" size={20} />
               게시 중...
