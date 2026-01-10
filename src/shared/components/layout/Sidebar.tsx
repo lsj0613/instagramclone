@@ -18,7 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
-import Notificationlist from "../../../features/notification/components/Notificationlist";
+import Notificationlist from "../../../features/notification/components/NotificationList";
 import { searchUsers, SearchUser } from "@/features/user/actions/SearchUsers";
 
 interface SessionUser {
