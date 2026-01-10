@@ -99,16 +99,25 @@ export default async function ProfilePage({ params }: Props) {
         {posts.length === 0 ? (
           // 게시물이 없을 때
           <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-            <div className="w-16 h-16 border-2 border-black rounded-full flex items-center justify-center mb-4">
-              📷
+            <div className="w-16 h-16 border-2 border-gray-300 rounded-full flex items-center justify-center mb-4">
+              <span className="text-2xl">📷</span>
             </div>
-            <h2 className="text-xl font-bold text-black mb-2">사진 공유</h2>
-            <p>사진을 공유하면 회원님의 프로필에 표시됩니다.</p>
-            {/* 본인일 경우 글쓰기 링크 제공 */}
+
+            {/* 권한(isOwner)에 따른 타이틀 및 설명 분기 */}
+            <h2 className="text-xl font-bold text-black mb-2">
+              {isOwner ? "사진 공유" : "게시물 없음"}
+            </h2>
+            <p className="text-sm">
+              {isOwner
+                ? "사진을 공유하면 회원님의 프로필에 표시됩니다."
+                : "아직 게시물이 없습니다."}
+            </p>
+
+            {/* 본인일 경우에만 작성 링크 노출 */}
             {isOwner && (
               <Link
                 href="/createpost"
-                className="mt-4 text-blue-500 font-semibold hover:underline"
+                className="mt-4 text-blue-500 font-semibold hover:underline text-sm"
               >
                 첫 게시물 작성하기
               </Link>
@@ -130,7 +139,6 @@ export default async function ProfilePage({ params }: Props) {
                   className="object-cover transition-opacity group-hover:opacity-90"
                   sizes="(max-width: 768px) 33vw, 300px"
                 />
-                {/* 호버 시 오버레이 효과 (좋아요 수 등 표시 가능) */}
                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
               </Link>
             ))}
