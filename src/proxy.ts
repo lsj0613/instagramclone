@@ -1,5 +1,5 @@
 // middleware.ts
-import { auth } from "@/shared/functions/auth";
+import { auth } from "@/lib/auth";
 
 export default auth((req) => {
   const isLoggedIn = !!req.auth;

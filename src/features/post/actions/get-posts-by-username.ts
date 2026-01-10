@@ -1,6 +1,6 @@
 "use server";
 
-import connectDB from "@/shared/functions/db";
+import connectDB from "@/lib/db";
 import Post from "@/features/post/models/post.model";
 import User from "@/features/user/models/user.model";
 

@@ -1,7 +1,7 @@
 // src/lib/actions/post.actions.ts
 "use server";
 
-import connectDB from "@/shared/functions/db";
+import connectDB from "@/lib/db";
 // 관계된 모델을 참조하기 위해 User 모델도 임포트가 필요할 수 있습니다.
 import "@/features/user/models/user.model";
 

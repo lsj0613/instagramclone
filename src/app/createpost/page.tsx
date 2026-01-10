@@ -1,4 +1,4 @@
-import { auth } from "@/shared/functions/auth";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import CreatePostForm from "../../features/post/components/CreatePostForm";
 import GreetingHeader from "../../features/post/components/GreetingHeader"; // 새로 만들 컴포넌트

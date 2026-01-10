@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import connectDB from "@/shared/functions/db";
+import connectDB from "@/lib/db";
 import Post from "@/features/post/models/post.model";
-import { PostCreateSchema } from "@/shared/functions/validation";
-import { auth } from "@/shared/functions/auth";
+import { PostCreateSchema } from "@/shared/schemas/validation";
+import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 // 반환 값에 대한 타입 정의

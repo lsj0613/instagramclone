@@ -1,9 +1,9 @@
 // lib/actions/Auth.ts
 "use server";
 
-import { signIn } from "@/shared/functions/auth";
-import { SignupSchema } from "@/shared/functions/validation";
-import connectDB from "@/shared/functions/db";
+import { signIn } from "@/lib/auth";
+import { SignupSchema } from "@/shared/schemas/validation";
+import connectDB from "@/lib/db";
 import User from "@/features/user/models/user.model";
 import bcrypt from "bcrypt";
 import { AuthError } from "next-auth";

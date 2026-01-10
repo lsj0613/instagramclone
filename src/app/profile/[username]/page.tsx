@@ -1,6 +1,6 @@
-import { auth } from "@/shared/functions/auth";
+import { auth } from "@/lib/auth";
 import { getUserByUsername } from "@/features/user/actions/GetUserByUsername"; //
-import { getPostsByUsername } from "@/features/post/actions/GetPostsByUsername"; // 위에서 만든 새 액션
+import { getPostsByUsername } from "@/features/post/actions/get-posts-by-username"; // 위에서 만든 새 액션
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -38,7 +38,7 @@ export default async function ProfilePage({ params }: Props) {
       {/* --- 프로필 헤더 --- */}
       <header className="flex flex-col md:flex-row items-center md:items-start gap-8 md:gap-20 border-b border-gray-200 pb-10 mb-8">
         {/* 프로필 이미지 */}
-        <div className="relative w-32 h-32 md:w-40 md:h-40 flex-shrink-0">
+        <div className="relative w-32 h-32 md:w-40 md:h-40 shrink-0">
           <Image
             src={user.profileImage || "/default-profile.png"} // 기본 이미지 처리
             alt={user.username}

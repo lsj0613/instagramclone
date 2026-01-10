@@ -4,7 +4,7 @@ import { useState, useRef, useActionState } from "react";
 import { createPost } from "@/features/post/actions/create-post";
 import ImagePreview from "./ImagePreview";
 import { Loader2, MapPin, ImagePlus, XCircle, FileText } from "lucide-react"; // 아이콘 임포트
-import { uploadToCloudinaryClient } from "@/shared/functions/upload";
+import { uploadToCloudinaryClient } from "@/shared/utils/upload";
 
 
 export default function CreatePostForm() {

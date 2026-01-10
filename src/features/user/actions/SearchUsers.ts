@@ -1,6 +1,6 @@
 "use server";
 
-import connectDB from "@/shared/functions/db";
+import connectDB from "@/lib/db";
 import User from "@/features/user/models/user.model";
 
 export interface SearchUser {
