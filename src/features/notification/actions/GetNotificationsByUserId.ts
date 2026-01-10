@@ -1,9 +1,9 @@
 // src/lib/actions/notification.actions.ts
 "use server";
 
-import connectDB from "@/lib/db";
-import Notification from "@/models/notification.model";
-import "@/models/user.model"; // populate를 위해 User 모델 로드 확인
+import connectDB from "@/shared/functions/db";
+import Notification from "@/features/notification/models/notification.model";
+import "@/features/user/models/user.model"; // populate를 위해 User 모델 로드 확인
 
 interface NotificationResponse {
   success: boolean;

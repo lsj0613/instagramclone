@@ -17,9 +17,9 @@ import {
   Loader2,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/functions/utils";
 import Notificationlist from "./Notificationlist";
-import { searchUsers, SearchUser } from "@/actions/SearchUsers";
+import { searchUsers, SearchUser } from "@/features/user/actions/SearchUsers";
 
 interface SessionUser {
   name?: string | null;

@@ -1,6 +1,6 @@
-import { auth } from "@/auth"; //
-import { getUserByUsername } from "@/actions/GetUserByUsername"; //
-import { getPostsByUsername } from "@/actions/GetPostsByUsername"; // 위에서 만든 새 액션
+import { auth } from "@/shared/functions/auth";
+import { getUserByUsername } from "@/features/user/actions/GetUserByUsername"; //
+import { getPostsByUsername } from "@/features/post/actions/GetPostsByUsername"; // 위에서 만든 새 액션
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";

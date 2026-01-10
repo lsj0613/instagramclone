@@ -3,7 +3,7 @@
 import Notification, { SerializedNotification } from './Notification';
 import { SessionUserProps } from '@/components/Sidebar/Sidebar';
 import { useEffect, useState } from 'react';
-import { getNotifications } from "@/actions/GetNotificationsByUserId";
+import { getNotifications } from "@/features/notification/actions/GetNotificationsByUserId";
 
 /**
  * @description 알림 데이터 배열을 받아 리스트 형태로 렌더링하는 컴포넌트

@@ -1,4 +1,4 @@
-import { auth, signOut } from "@/auth"; // auth.ts 경로 확인
+import { auth, signOut } from "@/shared/functions/auth";
 import Link from "next/link";
 
 export default async function Home() {

@@ -1,5 +1,5 @@
-import Notification from "@/models/notification.model";
-import connectDB from "@/lib/db";
+import Notification from "@/features/notification/models/notification.model";
+import connectDB from "@/shared/functions/db";
 import mongoose from "mongoose";
 
 interface CreateNotificationParams {

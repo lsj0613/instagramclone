@@ -1,11 +1,11 @@
 "use server";
 
-import { auth } from "@/auth";
-import Post from "@/models/post.model";
-import connectDB from "@/lib/db";
+import { auth } from "@/shared/functions/auth";
+import Post from "@/features/post/models/post.model";
+import connectDB from "@/shared/functions/db";
 import { revalidatePath } from "next/cache";
 import mongoose from "mongoose";
-import { createNotification, deleteNotification } from "@/lib/manageNotification";
+import { createNotification, deleteNotification } from "@/shared/functions/manageNotification";
 
 export async function toggleLikeAction(postId: string) {
   await connectDB();

@@ -22,7 +22,7 @@ export default function GreetingHeader({ userName }: { userName: string }) {
         안녕하세요, {userName}님! 👋
       </h1>
       {/* 클라이언트에서 확정되기 전까지 레이아웃 시프트 방지를 위한 최소 높이 유지 */}
-      <p className="text-gray-500 min-h-[1.5rem]">
+      <p className="text-gray-500 min-h-6">
         {greeting}
       </p>
     </div>

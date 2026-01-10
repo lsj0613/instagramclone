@@ -2,10 +2,10 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import connectDB from "@/lib/db";
-import User, { IUser } from "@/models/user.model";
+import connectDB from "@/shared/functions/db";
+import User, { IUser } from "@/features/user/models/user.model";
 import bcrypt from "bcrypt";
-import { LoginSchema } from "@/lib/validation";
+import { LoginSchema } from "@/shared/functions/validation";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [

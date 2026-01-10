@@ -1,7 +1,7 @@
-import { getPostById } from "@/actions/GetPostById";
+import { getPostById } from "@/features/post/actions/get-post"
 import { notFound } from "next/navigation";
-import PostDetailView from "./PostDetailView"; // 클라이언트 컴포넌트 import
-import { auth } from "@/auth";
+import PostDetailView from "@/features/post/components/PostDetailView"; // 클라이언트 컴포넌트 import
+import { auth } from "@/shared/functions/auth";
 
 interface Props {
   params: Promise<{ id: string }>;

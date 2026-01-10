@@ -1,8 +1,8 @@
 "use server";
 
-import connectDB from "@/lib/db";
-import Post from "@/models/post.model";
-import User from "@/models/user.model";
+import connectDB from "@/shared/functions/db";
+import Post from "@/features/post/models/post.model";
+import User from "@/features/user/models/user.model";
 
 export async function getPostsByUsername(username: string) {
   try {

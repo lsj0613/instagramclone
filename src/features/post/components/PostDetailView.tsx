@@ -2,8 +2,8 @@
 
 import { useState, useOptimistic, useTransition } from "react";
 import Image from "next/image";
-import { IPost } from "@/models/post.model";
-import { toggleLikeAction } from "@/actions/ToggleLike";
+import { IPost } from "@/features/post/models/post.model";
+import { toggleLikeAction } from "@/features/post/actions/toggle-like";
 
 interface Props {
   post: IPost;

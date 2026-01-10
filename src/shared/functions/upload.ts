@@ -1,4 +1,4 @@
-import { getCloudinarySignature } from "@/actions/GetSignature";
+import { getCloudinarySignature } from "@/shared/actions/GetSignature";
 
 // 클라이언트에서 실행되는 일반 함수
 export async function uploadToCloudinaryClient(file: File) {

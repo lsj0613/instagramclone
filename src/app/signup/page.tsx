@@ -2,7 +2,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { signup } from "@/actions/SignUp";
+import { signup } from "@/features/auth/actions/SignUp";
 import Link from "next/link";
 
 export default function SignupPage() {

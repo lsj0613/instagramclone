@@ -1,11 +1,11 @@
 // src/lib/actions/post.actions.ts
 "use server";
 
-import connectDB from "@/lib/db";
+import connectDB from "@/shared/functions/db";
 // 관계된 모델을 참조하기 위해 User 모델도 임포트가 필요할 수 있습니다.
-import "@/models/user.model";
+import "@/features/user/models/user.model";
 
-import Post, { IPost } from "@/models/post.model";
+import Post, { IPost } from "@/features/post/models/post.model";
 
 // 1. IPost를 기반으로 하되, author가 객체로 변환된 타입을 정의합니다.
 // Omit을 사용하여 기존 author(ObjectId)를 제거하고 새로운 타입을 주입합니다.
