@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
 import Notificationlist from "../../../features/notification/components/NotificationList";
-import { searchUsers, SearchUser } from "@/features/user/actions/SearchUsers";
+import { searchUsers, SearchUser } from "@/features/user/actions/search-users";
 
 interface SessionUser {
   name?: string | null;

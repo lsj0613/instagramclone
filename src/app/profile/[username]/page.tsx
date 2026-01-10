@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { getUserByUsername } from "@/features/user/actions/GetUserByUsername"; //
+import { getUserByUsername } from "@/features/user/actions/get-user-by-username"; //
 import { getPostsByUsername } from "@/features/post/actions/get-posts-by-username"; // 위에서 만든 새 액션
 import { notFound } from "next/navigation";
 import Image from "next/image";
