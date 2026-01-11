@@ -5,7 +5,7 @@ import Post from "@/features/post/models/post.model";
 import connectDB from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import mongoose from "mongoose";
-import { createNotification, deleteNotification } from "@/features/notification/actions/manage-notification";
+import { createNotification, deleteNotification } from "@/features/notification/services/manage-notification";
 
 export async function toggleLikeAction(postId: string) {
   await connectDB();
