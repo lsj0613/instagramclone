@@ -1,9 +1,9 @@
-// auth.ts
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import connectDB from "@/lib/db";
-import User, { IUser } from "@/features/user/models/user.model";
+import db from "@/lib/db";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { LoginSchema } from "@/shared/schemas/validation";
 
@@ -19,17 +19,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (validatedFields.success) {
           const { email, password } = validatedFields.data;
-          await connectDB();
-          const user = await User.findOne({ email }).lean();
+          
+          const user = await db.query.users.findFirst({
+            where: eq(users.email, email),
+          });
 
           if (!user || !user.password) return null;
 
           const passwordMatch = await bcrypt.compare(password, user.password);
+          
           if (passwordMatch) {
-            // Credentials 방식은 여기서 리턴한 객체가 jwt 콜백의 user로 전달됨
-            return {
-              ...user,
-              id: user._id.toString(),
+            // 핵심: DB의 username을 표준 필드인 name에 담아서 반환
+            return { 
+              ...user, 
+              id: String(user.id), 
+              name: user.username 
             };
           }
         }
@@ -39,24 +43,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider === "google") {
+      if (account?.provider === "google" && user.email) {
         try {
-          await connectDB();
-          const existingUser = await User.findOne({ email: user.email });
+          const existingUser = await db.query.users.findFirst({
+            where: eq(users.email, user.email),
+          });
 
           if (!existingUser) {
-            const newUser = new User({
-              username: (() => {
-                if (!user.email) return "user_" + Math.random().toString(36).substring(2, 7);
-                const emailPrefix = user.email.split('@')[0];
-                const cleanPrefix = emailPrefix.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-                const randomSuffix = Math.random().toString(36).substring(2, 6);
-                return `${cleanPrefix}${randomSuffix}`;
-              })(),
+            const emailPrefix = user.email.split('@')[0];
+            const cleanPrefix = emailPrefix.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+            const randomSuffix = Math.random().toString(36).substring(2, 6);
+            const generatedUsername = `${cleanPrefix}${randomSuffix}`;
+
+            await db.insert(users).values({
               email: user.email,
+              username: generatedUsername,
               profileImage: user.image,
             });
-            await newUser.save();
           }
         } catch (error) {
           console.error("Google 로그인 DB 저장 오류:", error);
@@ -66,35 +69,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return true;
     },
 
-    // [핵심 수정 부분] jwt 콜백
     async jwt({ token, user, account }) {
-      // 로그인 시점 (user 객체가 있을 때)
+      // 1. 최초 로그인 시점
       if (user) {
-        // 1. Credentials 로그인인 경우: authorize에서 리턴한 값(username 포함)이 user에 이미 있음
         if (account?.provider === "credentials") {
-          token.id = user.id;
-          token.username = (user as IUser).username; // authorize에서 넘겨준 값
-        }
-        // 2. Google (소셜) 로그인인 경우: user는 구글 정보일 뿐이므로 DB 조회 필요
+          // authorize에서 name에 username을 넣어줬으므로 그대로 전달
+          token.id = user.id as string;
+          token.name = user.name; 
+        } 
         else if (account?.provider === "google") {
-           await connectDB();
-           // 이메일로 DB에서 유저 정보를 찾아옴 (signIn에서 이미 생성됨이 보장됨)
-           const dbUser = await User.findOne({ email: user.email });
-           
-           if (dbUser) {
-             token.id = dbUser._id.toString();
-             token.username = dbUser.username; // DB에 있는 username을 토큰에 저장
-           }
+          // 구글 로그인 시 DB에서 해당 유저의 username을 가져와 name에 덮어씀
+          const dbUser = await db.query.users.findFirst({
+            where: eq(users.email, user.email!),
+          });
+
+          if (dbUser) {
+            token.id = String(dbUser.id);
+            token.name = dbUser.username; // 구글 실명 대신 DB의 username 사용
+          }
         }
       }
       return token;
     },
 
     async session({ session, token }) {
+      // 2. 세션 형성 시점: 토큰에 저장된 name(실제로는 username)을 세션으로 전달
       if (token.id && session.user) {
         session.user.id = token.id as string;
-        // 이제 token.username에 DB값이 확실히 들어있으므로 name에 매핑됨
-        session.user.name = token.username as string; 
+        session.user.name = token.name; 
       }
       return session;
     },

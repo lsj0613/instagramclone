@@ -1,19 +1,17 @@
 "use server";
-
 import { revalidatePath } from "next/cache";
-import connectDB from "@/lib/db";
-import Post from "@/features/post/models/post.model";
 import { PostCreateSchema } from "@/shared/schemas/validation";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { createPostInDB } from "@/services/post.service";
 
 // 반환 값에 대한 타입 정의
 export interface createPostErrorResponse {
-  errors?: { images?: string; caption?: string; location?: string };
+  errors?: { images?: string[]; caption?: string[]; location?: string[] };
   message?: string;
 }
 
-/*formData를 받아 새 Post를 db에 생성하고 해당 Post 객체를 반환 */
+/*formData(caption, location, images)를 받아 새 Post를 db에 생성 */
 export async function createPost(
   prevState: createPostErrorResponse | null, // 첫 번째 인자 추가
   formData: FormData
@@ -25,50 +23,47 @@ export async function createPost(
     // 에러를 던져서 즉시 catch 블록으로 이동시킴 (아래 로직 실행 안 됨)
     throw new Error("로그인이 필요한 서비스입니다.");
   }
-
-  try {
-    await connectDB();
-
-    const rawImages = formData.getAll("images") as string[];
+  const rawInput = {
+    // 이미지는 여러 개이므로 getAll() 사용
+    images: formData.getAll("images") as string[], 
     
-    // 빈 문자열 제거 및 유효성 필터링
-    const validImages = rawImages.filter((url) => url.trim() !== "");
+    // 나머지는 하나씩이므로 get() 사용
+    // (빈 문자열이 올 경우 null이나 undefined로 처리하고 싶다면 여기서 변환 로직 추가 가능)
+    caption: formData.get("caption")?.toString() || undefined,
+    location: formData.get("location")?.toString() || undefined,
+  };
 
-    const parsedFormData = {
-      images: validImages,
-      caption: formData.get("caption") as string,
-      location: formData.get("location") as string,
+  // 1-1. (선택사항) 빈 문자열 이미지 URL 필터링 등 기초적인 정제
+  // Zod의 .url() 검사 전에 명백히 잘못된 데이터(빈 값)는 미리 쳐내는 게 깔끔할 수 있습니다.
+  rawInput.images = rawInput.images.filter(url => url.trim() !== "");
+
+  // 2. 공유된 스키마로 검증 (Validation)
+  const validation = PostCreateSchema.safeParse(rawInput);
+
+  if (!validation.success) {
+    // 검증 실패 시 에러 반환
+    return {
+      errors: validation.error.flatten().fieldErrors,
+      message: "입력값을 확인해주세요.",
     };
-    // 1. 데이터 검증 (입력값이 PostCreateInput 형식을 따르는지 확인)
-    const validation = PostCreateSchema.safeParse(parsedFormData);
+  }
 
-    if (!validation.success) {
-      // ZodError를 필드별 에러 객체로 변환 ({ images: [...], caption: [...] })
-      const fieldErrors = validation.error.flatten().fieldErrors;
-
-      return {
-        errors: {
-          images: fieldErrors.images?.[0], // 첫 번째 에러 메시지만 전달
-          caption: fieldErrors.caption?.[0],
-          location: fieldErrors.location?.[0],
-        },
-        message: "입력값을 확인해주세요.",
-      };
-    }
-
-    const validatedData = validation.data;
-
+  // 3. 검증 통과된 데이터 사용
+  const validatedData = validation.data; 
+  // validatedData는 이제 { images: string[], caption?: string, location?: string } 타입이 확실함
+  try {
     // 2. 데이터베이스 저장
-    // Mongoose 모델 생성 시 타입을 명시적으로 지정
-    await Post.create({
-      author: currentUser,
+    await createPostInDB({
+      authorId: currentUser,
+      caption: validatedData.caption as string,
+      locationName: validatedData.location, // 스키마의 locationName과 매칭
       images: validatedData.images,
-      caption: validatedData.caption,
-      location: validatedData.location,
-    });
+    }
+    );
 
-    // 3. Next.js 16 캐시 무효화
-  } catch (error) {
+  revalidatePath("/app/profile");
+  redirect(`/profile/${session?.user?.name}`); 
+ } catch (error) {
     let errorMessage = "알 수 없는 오류가 발생했습니다.";
 
     if (error instanceof Error) {
@@ -86,6 +81,5 @@ export async function createPost(
       message: errorMessage,
     };
   }
-  revalidatePath("/app/profile");
-  redirect(`/profile/${session?.user?.name}`);
+
 }

@@ -3,7 +3,7 @@
 import Notification, { SerializedNotification } from './Notification';
 import { SessionUserProps } from '@/shared/components/layout/Sidebar';
 import { useEffect, useState } from 'react';
-import { getNotifications } from "@/features/notification/actions/get-notifications-by-userId";
+import { getNotificationsByUserId } from "@/features/notification/actions";
 
 /**
  * @description 알림 데이터 배열을 받아 리스트 형태로 렌더링하는 컴포넌트
@@ -25,7 +25,7 @@ export default function NotificationList({ currentUser }: SessionUserProps) {
       setIsLoading(true);
       try {
         // 서버 액션 호출
-        const response = await getNotifications(currentUser.id);
+        const response = await getNotificationsByUserId(currentUser.id);
         
         if (response.success && response.data) {
           // 서버에서 온 문자열 데이터를 JSON 파싱하여 상태 업데이트

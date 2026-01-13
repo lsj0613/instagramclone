@@ -1,12 +1,13 @@
 "use server";
 
-import connectDB from "@/lib/db";
-import User from "@/features/user/models/user.model";
+import { ilike } from "drizzle-orm";
+import { users } from "@/db/schema";
+import db from "@/lib/db";
 
 export interface SearchUser {
-  _id: string;
+  id: string;
   username: string;
-  profileImage: string;
+  profileImage: string|null;
 }
 
 interface SearchResponse {
@@ -21,36 +22,29 @@ export async function searchUsers(prevstate: SearchResponse, query: string): Pro
       return { success: true, data: [] };
     }
 
-    await connectDB();
 
     // Atlas Search ($search) 파이프라인 사용
-    const users = await User.aggregate([
-      {
-        $search: {
-          index: "default", // Atlas에서 만든 인덱스 이름
-          autocomplete: {
-            query: query,
-            path: "username", // 검색할 필드
-            fuzzy: {
-              maxEdits: 1, // 오타 1글자까지 허용 (선택 사항)
-            },
-          },
-        },
-      },
-      {
-        $project: {
-          // 필요한 필드만 가져오기 (1: 포함, 0: 제외)
-          _id: 1,
-          username: 1,
-          profileImage: 1,
-        },
-      },
-    ]);
+    const searchPattern = `%${query}%`;
+
+    // 2. Drizzle Query 수행
+    // select를 통해 필요한 필드만 가져옴 (Projection)
+    const rawusers = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        profileImage: users.profileImage,
+      })
+      .from(users)
+      .where(
+        // username에 검색어가 포함되어 있는지 확인 (대소문자 무시)
+        ilike(users.username, searchPattern)
+      )
+      .limit(20);
 
     // 데이터 직렬화 (ObjectId -> string)
     // aggregate 결과는 lean()을 안 써도 순수 객체로 나옵니다.
-    const formattedUsers: SearchUser[] = users.map((user) => ({
-      _id: user._id.toString(),
+    const formattedUsers: SearchUser[] = rawusers.map((user) => ({
+      id: user.id.toString(),
       username: user.username,
       profileImage: user.profileImage,
     }));

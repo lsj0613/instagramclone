@@ -1,59 +1,19 @@
-import mongoose from 'mongoose';
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
+import * as schema from "@/db/schema"; // 우리가 작성한 테이블 설계도
 
-// 환경 변수 검증
-const MONGODB_URI = process.env.MONGODB_URI;
-
-if (!MONGODB_URI) {
-  throw new Error(
-    '환경 변수 파일(.env.local)에 MONGODB_URI가 정의되지 않았습니다.'
-  );
+// 1. 환경변수 체크 (실수 방지)
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL이 .env 파일에 정의되지 않았습니다.");
 }
 
-/**
- * 전역 객체(global)에 mongoose 연결 상태를 캐싱합니다.
- * 서버리스 환경에서 인스턴스가 재사용될 때 연결이 중복 생성되는 것을 방지합니다.
- */
-interface MongooseCache {
-  conn: typeof mongoose | null;
-  promise: Promise<typeof mongoose> | null;
-}
+// 2. Neon 서버리스 드라이버 연결 (HTTP 방식)
+// Mongoose처럼 무거운 TCP 연결을 맺고 유지하는 방식이 아니라,
+// 가벼운 HTTP 요청(Fetch)을 사용하므로 'global caching' 로직이 필요 없습니다.
+const sql = neon(process.env.DATABASE_URL);
 
-declare global {
-  var mongoose: MongooseCache | undefined;
-}
+// 3. Drizzle ORM 인스턴스 생성 및 export
+// { schema }를 넘겨줘야 db.query.users... 처럼 자동완성이 됩니다.
+const db = drizzle(sql, { schema });
 
-let cached = global.mongoose;
-
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
-}
-
-async function connectDB() {
-  // 1. 이미 연결된 상태라면 기존 연결 반환
-  if (cached?.conn) {
-    return cached.conn;
-  }
-
-  // 2. 연결 프로세스가 없다면 새로운 프로미스 생성
-  if (!cached?.promise) {
-    const opts = {
-      bufferCommands: false,
-    };
-
-    cached!.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
-      return mongoose;
-    });
-  }
-
-  // 3. 연결 대기 및 결과 저장
-  try {
-    cached!.conn = await cached!.promise;
-  } catch (e) {
-    cached!.promise = null;
-    throw e;
-  }
-
-  return cached!.conn;
-}
-
-export default connectDB;
+export default db

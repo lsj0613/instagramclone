@@ -237,7 +237,7 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
                     /* 3. 로딩 끝 & 결과 있음 */
                     <ul className="flex flex-col gap-2">
                       {searchResults.map((user) => (
-                        <li key={user._id}>
+                        <li key={user.id}>
                           <Link
                             href={`/profile/${user.username}`}
                             onClick={() => setExpandedState("none")}
@@ -245,7 +245,7 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
                           >
                             <div className="relative h-10 w-10 shrink-0">
                               <Image
-                                src={user.profileImage}
+                                src={user.profileImage || "@/default-profile.png"}
                                 alt={user.username}
                                 fill
                                 className="rounded-full object-cover border border-gray-200"

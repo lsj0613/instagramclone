@@ -2,11 +2,11 @@
 
 import { useState, useOptimistic, useTransition } from "react";
 import Image from "next/image";
-import { IPost } from "@/features/post/models/post.model";
-import { toggleLikeAction } from "@/features/post/actions/toggle-like";
+import { togglePostLikeAction } from "@/features/post/actions/toggle-post-like";
+import { PostInfo } from "@/lib/types";
 
 interface Props {
-  post: IPost;
+  post: PostInfo;
   userId?: string; // 부모로부터 받을 userId 추가
 }
 
@@ -17,30 +17,33 @@ export default function PostDetailView({ post, userId }: Props) {
 
   // 세션 훅 대신 Props로 받은 userId 사용
   const currentUserId = userId;
-  const isAuthor = currentUserId === post.author._id.toString();
+  const isAuthor = currentUserId === post.authorId.toString();
 
   // 1. 낙관적 업데이트
-  const [optimisticLikes, addOptimisticLike] = useOptimistic(
-    post.likes,
-    (state, userId: string) => {
-      return state.includes(userId)
-        ? state.filter((id) => id !== userId)
-        : [...state, userId];
-    }
+  const [optimisticState, setOptimisticState] = useOptimistic(
+    {
+      isLiked: post.isLiked,
+      likeCount: post.likeCount, // PostInfo에 likeCount가 있다고 가정
+    },
+    // reducer: (현재상태, 보낼 값) => 새로운 상태
+    (state, newIsLiked: boolean) => ({
+      isLiked: newIsLiked,
+      likeCount: state.likeCount + (newIsLiked ? 1 : -1),
+    })
   );
 
   const isLiked = currentUserId
-    ? optimisticLikes.includes(currentUserId)
+    ? optimisticState.isLiked
     : false;
 
   // 2. 핸들러
   const handleLikeClick = () => {
     if (!currentUserId || isAuthor) return;
-
+    const nextState = !optimisticState.isLiked;
     startTransition(async () => {
       try {
-        addOptimisticLike(currentUserId);
-        await toggleLikeAction(post._id);
+        setOptimisticState(nextState);
+        await togglePostLikeAction(post.id);
         setIsError(false);
       } catch (error) {
         setIsError(true);
@@ -104,7 +107,7 @@ export default function PostDetailView({ post, userId }: Props) {
         <div className="w-full md:w-3/5 bg-black flex items-center justify-center relative aspect-square">
           {post.images.length > 0 && (
             <Image
-              src={post.images[currentImageIndex]}
+              src={post.images.find((image) => image.order === currentImageIndex)!.url}
               alt="Post image"
               fill
               className="object-contain"
@@ -159,7 +162,7 @@ export default function PostDetailView({ post, userId }: Props) {
             <span className="font-bold">{post.author.username}</span>
           </div>
 
-          <div className="py-4 flex-grow">
+          <div className="py-4 grow">
             <p className="text-sm">
               <span className="font-bold mr-2">{post.author.username}</span>
               {post.caption}
@@ -205,7 +208,7 @@ export default function PostDetailView({ post, userId }: Props) {
             <div className="flex flex-col gap-1 text-xs">
               <div className="flex items-center gap-2">
                 <p className="font-semibold text-black">
-                  좋아요 {optimisticLikes.length}개
+                  좋아요 {optimisticState.likeCount}개
                 </p>
               </div>
               <p className="text-gray-400">
