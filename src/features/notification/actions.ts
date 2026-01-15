@@ -3,74 +3,63 @@
 
 import db from "@/lib/db";
 import { desc, eq } from "drizzle-orm";
-import { notifications, users, posts } from "@/db/schema";
-import { InferSelectModel } from "drizzle-orm";
+import { notifications } from "@/db/schema";
+import { unstable_noStore as noStore } from "next/cache";
 
-// 1. 기본 Notification 타입 (DB 컬럼 기준)
-type BaseNotification = InferSelectModel<typeof notifications>;
-
-// 2. 'with'로 가져오는 연관 데이터의 타입을 명시적으로 결합
-export type NotificationWithRelations = BaseNotification & {
-  actor: Pick<InferSelectModel<typeof users>, "id" | "username" | "profileImage">;
-  post: Pick<InferSelectModel<typeof posts>, "id"> | null;
+// 1. 쿼리 실행 함수 (내부용) - export 안 해도 됨
+// 이걸 따로 분리해야 리턴 타입을 자동으로 뽑아낼 수 있습니다.
+const getNotificationsQuery = async (userId: string, limit: number) => {
+  return await db.query.notifications.findMany({
+    where: eq(notifications.recipientId, userId),
+    with: {
+      actor: {
+        columns: {
+          id: true,
+          username: true,
+          profileImage: true,
+        },
+      },
+      post: {
+        columns: {
+          id: true,
+        },
+      },
+    },
+    orderBy: [desc(notifications.createdAt)],
+    limit: limit,
+  });
 };
 
+// 2. ✨ 마법의 타입 자동 생성
+// 손으로 InferSelectModel, Pick 등을 적을 필요가 사라집니다.
+export type NotificationWithRelations = Awaited<ReturnType<typeof getNotificationsQuery>>[number];
 
 interface NotificationResponse {
   success: boolean;
-  data?: NotificationWithRelations[];
+  data?: NotificationWithRelations[]; // 위에서 만든 타입 사용
   error?: string;
 }
-/* 알림 발생자 정보가 populated된 notification을 반환 */
+
+// 3. 실제 액션 함수
 export async function getNotificationsByUserId(
   userId: string,
   limit = 20
 ): Promise<NotificationResponse> {
-  try {
-    /**
-     * 1. 데이터 조회 및 정렬 로직
-     * - find({ receiver: userId }): 본인이 수신자인 알림 필터링
-     * - sort({ createdAt: -1 }): 최신순(내림차순) 정렬
-     * - populate("issuer"): 알림을 발생시킨 유저 정보(이름, 프론트 이미지 등) 포함
-     */
-    const notification = await db.query.notifications.findMany({
-      // 1. 내 알림만 필터링
-      where: eq(notifications.recipientId, userId),
-      
-      // 2. 관련 데이터 조인 (유저 정보, 게시물 정보 등)
-      with: {
-        actor: {
-          columns: {
-            id: true,
-            username: true,
-            profileImage: true,
-          },
-        },
-        post: {
-          columns: {
-            id: true,
-          },
-        },
-      },
 
-      // 3. 최신순 정렬 (index 활용)
-      orderBy: [desc(notifications.createdAt)],
-      
-      // 4. 페이지네이션을 위한 제한
-      limit: limit,
-    });
+  noStore();
+
+  try {
+    // 위에서 정의한 쿼리 함수 호출
+    const notification = await getNotificationsQuery(userId, limit);
+
     return {
       success: true,
       data: notification,
     };
   } catch (error) {
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : "알림 조회 중 오류가 발생했습니다.";
     return {
       success: false,
-      error: errorMessage,
+      error: error instanceof Error ? error.message : "알림 조회 오류",
     };
   }
 }

@@ -1,16 +1,22 @@
 "use client";
 
-import Notification, { SerializedNotification } from './Notification';
-import { SessionUserProps } from '@/shared/components/layout/Sidebar';
-import { useEffect, useState } from 'react';
-import { getNotificationsByUserId } from "@/features/notification/actions";
+import Notification from "./Notification";
+import { SessionUserProps } from "@/shared/components/layout/Sidebar";
+import { useEffect, useState } from "react";
+import {
+  getNotificationsByUserId,
+  NotificationWithRelations,
+} from "@/features/notification/actions";
 
 /**
  * @description 알림 데이터 배열을 받아 리스트 형태로 렌더링하는 컴포넌트
  */
+
 export default function NotificationList({ currentUser }: SessionUserProps) {
   // 1. 상태 관리 (데이터 및 로딩 상태)
-  const [notifications, setNotifications] = useState<SerializedNotification[]>([]);
+  const [notifications, setNotifications] = useState<
+    NotificationWithRelations[]
+  >([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // 2. 데이터 페칭 로직 (컴포넌트 마운트 시 실행)
@@ -26,11 +32,9 @@ export default function NotificationList({ currentUser }: SessionUserProps) {
       try {
         // 서버 액션 호출
         const response = await getNotificationsByUserId(currentUser.id);
-        
+
         if (response.success && response.data) {
-          // 서버에서 온 문자열 데이터를 JSON 파싱하여 상태 업데이트
-          const parsedData: SerializedNotification[] = JSON.parse(response.data);
-          setNotifications(parsedData);
+          setNotifications(response.data);
         }
       } catch (error) {
         console.error("알림 불러오기 실패:", error);
@@ -64,10 +68,7 @@ export default function NotificationList({ currentUser }: SessionUserProps) {
   return (
     <div className="flex flex-col divide-y divide-gray-200">
       {notifications.map((notification) => (
-        <Notification 
-          key={notification._id} 
-          notification={notification} 
-        />
+        <Notification key={notification.id} notification={notification} />
       ))}
     </div>
   );

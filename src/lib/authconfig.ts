@@ -1,7 +1,7 @@
 "use server";
 
 import { signIn } from "@/lib/auth"; // auth.ts에서 내보낸 signIn 함수
-import { LoginSchema } from "@/shared/schemas/validation"; // 유효성 검사 스키마
+import { LoginSchema } from "@/shared/validation"; // 유효성 검사 스키마
 import { AuthError } from "next-auth";
 import { z } from "zod";
 
@@ -56,7 +56,7 @@ export async function authenticate(
           return { message: "로그인 중 알 수 없는 오류가 발생했습니다." };
       }
     }
-    
+
     // 중요: 리다이렉트를 위한 에러는 다시 던져야 함 (Next.js 내부 로직)
     throw error;
   }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useActionState } from "react";
-import { createPost } from "@/features/post/actions/create-post";
+import { useState, useRef, useActionState, startTransition } from "react";
+import { createPost } from "@/features/post/actions";
 import ImagePreview from "./ImagePreview";
 import { Loader2, MapPin, ImagePlus, XCircle, FileText } from "lucide-react"; // 아이콘 임포트
 import { uploadToCloudinaryClient } from "@/shared/utils/upload";
@@ -9,12 +9,18 @@ import { uploadToCloudinaryClient } from "@/shared/utils/upload";
 
 export default function CreatePostForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [state, formAction, isPending] = useActionState(createPost, null);
-  // UI 상태 관리
+  const [state, formAction, isActionPending] = useActionState(createPost, null);
+  
+  // 1. 업로드 상태를 관리할 state 추가
+  const [isUploading, setIsUploading] = useState(false); 
+
+  // 2. 둘 중 하나라도 진행 중이면 로딩으로 취급
+  const isPending = isUploading || isActionPending;  // UI 상태 관리
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    setIsUploading(true);
     try {
       e.preventDefault();
       const formData = new FormData(e.currentTarget);
@@ -26,11 +32,15 @@ export default function CreatePostForm() {
       imageUrls.forEach((url) => {
         formData.append("images", url); // 동일한 키로 여러 번 추가
       }); // 액션)
-      formAction(formData);
-    } catch (error) {
+
+      startTransition(() => {
+        formAction(formData); // 여기서부터는 isActionPending이 true가 됨
+      });
+        } catch (error) {
       console.error("Upload failed:", error);
       // 에러 처리 로직 (사용자 알림 등)
     }
+    setIsUploading(false);
   }
 
   const handleFiles = (newFiles: FileList | null) => {

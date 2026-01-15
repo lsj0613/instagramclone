@@ -17,13 +17,22 @@ import { relations } from "drizzle-orm";
 // -------------------------------------------------------------------
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
+  
+  // 구글 로그인 직후에는 임시 값을 넣거나 폼을 통해 입력받아야 하므로 
+  // 로직에 따라 null 허용 여부를 결정해야 합니다. 
+  // 여기서는 온보딩 완료 전까지 임시 유저네임을 유지하는 전략을 가정합니다.
   username: text("username").notNull().unique(),
+  
   email: text("email").notNull().unique(),
-  password: text("password"),
+  password: text("password"), // 소셜 로그인의 경우 null 가능
   profileImage: text("profile_image"),
   bio: text("bio"),
 
-  // [반정규화 필드] 프로필 페이지 로딩 속도 최적화
+  // [추가] 온보딩 완료 여부 플래그
+  // 이 필드가 false이면 미들웨어에서 /onboarding 페이지로 리다이렉트합니다.
+  hasFinishedOnboarding: boolean("has_finished_onboarding").default(false).notNull(),
+
+  // [반정규화 필드]
   postCount: integer("post_count").default(0).notNull(),
   followerCount: integer("follower_count").default(0).notNull(),
   followingCount: integer("following_count").default(0).notNull(),

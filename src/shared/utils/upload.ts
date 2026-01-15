@@ -1,4 +1,4 @@
-import { getCloudinarySignature } from "@/shared/actions/GetSignature";
+import { getCloudinarySignature } from "@/shared/actions/GetCloudinarySignature";
 
 // 클라이언트에서 실행되는 일반 함수
 export async function uploadToCloudinaryClient(file: File) {
@@ -22,6 +22,12 @@ export async function uploadToCloudinaryClient(file: File) {
       }
     );
   
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("❌ Cloudinary 에러 상세:", errorData); // 브라우저 콘솔 확인 필!
+      throw new Error(errorData.error?.message || "이미지 업로드 실패");
+    }
     if (!response.ok) throw new Error("이미지 업로드 실패");
   
     const data = await response.json();

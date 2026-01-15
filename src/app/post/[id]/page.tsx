@@ -17,5 +17,5 @@ export default async function PostDetailPage({ params }: Props) {
   }
 
   // 데이터를 클라이언트 컴포넌트에 props로 전달합니다.
-  return <PostDetailView post={response} userId={session?.user?.id}/>;
+  return <PostDetailView post={response} currentUserId={session?.user?.id}/>;
 }

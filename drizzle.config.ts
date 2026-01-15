@@ -7,7 +7,7 @@ dotenv.config({ path: ".env" });
 
 // 2. 환경 변수가 제대로 로드됐는지 확인 (디버깅용)
 if (!process.env.DATABASE_URL) {
-  throw new Error("❌ DATABASE_URL을 찾을 수 없습니다. .env 또는 .env.local 파일을 확인해주세요.");
+  throw new Error("❌ DATABASE_URL을 찾을 수 없습니다. .env.local 파일을 확인해주세요.");
 }
 
 export default defineConfig({

@@ -17,3 +17,5 @@ export type PostInfo = Omit<Post, "createdAt"> & {
   // 만약 좋아요 여부 같은 추가 필드가 있다면 여기 적기
   isLiked: boolean;
 };
+
+
