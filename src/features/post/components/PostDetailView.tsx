@@ -13,15 +13,15 @@ import {
   deletePostAction,
   togglePostLikeAction,
 } from "@/features/post/actions";
-import { PostInfo } from "@/lib/types";
+import { PostInfo, SessionUser } from "@/lib/types";
 import Link from "next/link";
 
 interface Props {
   post: PostInfo;
-  currentUserId?: string;
+  currentUser?: SessionUser;
 }
 
-export default function PostDetailView({ post, currentUserId }: Props) {
+export default function PostDetailView({ post, currentUser }: Props) {
   const [isPending, startTransition] = useTransition();
   const [isError, setIsError] = useState(false);
 
@@ -46,7 +46,7 @@ export default function PostDetailView({ post, currentUserId }: Props) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const isAuthor = currentUserId === post.authorId.toString();
+  const isAuthor = currentUser?.id === post.authorId.toString();
 
   // 낙관적 업데이트
   const [optimisticState, setOptimisticState] = useOptimistic(
@@ -56,11 +56,11 @@ export default function PostDetailView({ post, currentUserId }: Props) {
       likeCount: state.likeCount + (newIsLiked ? 1 : -1),
     })
   );
-  const isLiked = currentUserId ? optimisticState.isLiked : false;
+  const isLiked = currentUser?.id ? optimisticState.isLiked : false;
 
   // 좋아요 핸들러
   const handleLikeClick = () => {
-    if (!currentUserId || isAuthor) return;
+    if (!currentUser?.id || isAuthor) return;
     const nextState = !optimisticState.isLiked;
     startTransition(async () => {
       try {
@@ -133,7 +133,7 @@ export default function PostDetailView({ post, currentUserId }: Props) {
       `}</style>
 
       <article className="flex flex-col md:flex-row w-full max-w-[935px] md:h-[600px] lg:h-[700px] bg-white border border-gray-300 rounded-xl overflow-hidden shadow-sm">
-        {/* --- [좌측] 이미지 영역 (변경 없음) --- */}
+        {/* --- [좌측] 이미지 영역 --- */}
         <div className="w-full md:w-[55%] lg:w-[60%] bg-black relative flex items-center justify-center overflow-hidden h-[400px] md:h-full">
           {post.images.length > 0 && (
             <div className="relative w-full h-full">
@@ -204,8 +204,9 @@ export default function PostDetailView({ post, currentUserId }: Props) {
 
         {/* --- [우측] 정보 및 액션 영역 --- */}
         <div className="w-full md:w-[45%] lg:w-[40%] flex flex-col h-full bg-white relative">
-          {/* 1. 통합 헤더 */}
-          <div className="p-4 border-b border-gray-100 flex gap-4 items-start shrink-0">
+          {/* 1. 통합 헤더 (수정됨 ✨) */}
+          <div className="p-4 border-b border-gray-100 flex gap-3 items-start shrink-0">
+            {/* 프로필 이미지 */}
             <div className="w-10 h-10 rounded-full border border-gray-200 relative overflow-hidden shrink-0">
               <Image
                 src={post.author.profileImage || "/default-profile.png"}
@@ -215,18 +216,32 @@ export default function PostDetailView({ post, currentUserId }: Props) {
               />
             </div>
 
+            {/* 유저 정보 및 캡션 영역 */}
             <div className="flex-1 min-w-0 pt-0.5">
-              <div className="text-sm leading-5">
+              {/* 유저 아이디 & 실명 (수직 배치) */}
+              <div className="flex flex-col">
                 <Link
                   href={`/profile/${post.author.username}`}
-                  className="font-bold text-gray-900 mr-2 hover:opacity-70 cursor-pointer"
+                  className="font-bold text-sm text-gray-900 hover:opacity-70 leading-none inline-block"
                 >
                   {post.author.username}
                 </Link>
-                <span className="text-gray-900 whitespace-pre-wrap">
-                  {post.caption}
-                </span>
+                {/* 실명 표시 (있을 경우에만) */}
+                {post.author.name && (
+                  <span className="text-xs text-gray-500 font-normal mt-1 truncate">
+                    {post.author.name}
+                  </span>
+                )}
               </div>
+
+              {/* 캡션 (별도 블록으로 분리) */}
+              {post.caption && (
+                <div className="text-sm leading-5 text-gray-900 whitespace-pre-wrap mt-2">
+                  {post.caption}
+                </div>
+              )}
+
+              {/* 날짜 */}
               <div className="mt-2 text-[10px] text-gray-500 uppercase tracking-wide font-medium">
                 {new Date(post.createdAt).toLocaleDateString("ko-KR", {
                   year: "numeric",
@@ -236,6 +251,7 @@ export default function PostDetailView({ post, currentUserId }: Props) {
               </div>
             </div>
 
+            {/* 더보기 버튼 */}
             <div className="relative shrink-0 ml-1" ref={menuRef}>
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -255,55 +271,24 @@ export default function PostDetailView({ post, currentUserId }: Props) {
                 <div className="absolute top-8 right-0 w-48 bg-white rounded-xl shadow-lg border border-gray-100 z-50 overflow-hidden flex flex-col text-sm animate-fade-in ring-1 ring-black ring-opacity-5">
                   {isAuthor ? (
                     <>
-                      {/* 삭제 Form */}
                       <form action={deletePost}>
                         <button
                           type="submit"
                           disabled={isDeleting}
                           className={`w-full text-left px-4 py-3 font-bold border-b border-gray-100 transition-colors ${
                             isDeleting
-                              ? "text-gray-400 cursor-not-allowed" // 로딩 중: 회색 + 클릭 금지
-                              : "text-red-500 hover:bg-gray-50 active:bg-gray-100" // 평소: 빨간색 + 호버 효과
+                              ? "text-gray-400 cursor-not-allowed"
+                              : "text-red-500 hover:bg-gray-50 active:bg-gray-100"
                           }`}
                         >
-                          {isDeleting ? (
-                            <span className="flex items-center gap-2">
-                              {/* 심플한 로딩 스피너 */}
-                              <svg
-                                className="animate-spin h-4 w-4 text-gray-400"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                              삭제 중...
-                            </span>
-                          ) : (
-                            "삭제"
-                          )}
+                          {isDeleting ? "삭제 중..." : "삭제"}
                         </button>
-
-                        {/* 에러 메시지 (실패했을 때만 노출) */}
                         {!deletingState?.success && deletingState?.message && (
                           <div className="px-4 pb-2 text-xs text-red-500 font-medium bg-red-50 break-keep animate-fade-in">
                             ⚠️ {deletingState.message}
                           </div>
                         )}
                       </form>
-
                       <button className="w-full text-left px-4 py-3 text-gray-900 hover:bg-gray-50 active:bg-gray-100 border-b border-gray-100">
                         수정
                       </button>
@@ -333,11 +318,8 @@ export default function PostDetailView({ post, currentUserId }: Props) {
 
           {/* 3. 하단 액션 버튼 */}
           <div className="p-4 border-t border-gray-100 bg-white mt-auto">
-            {/* ✅ [수정] justify-between을 이용해 버튼 그룹과 좋아요 개수를 양 끝으로 배치 */}
             <div className="flex items-center justify-between mb-2.5">
-              {/* 좌측: 버튼 그룹 */}
               <div className="flex items-center gap-4">
-                {/* 1. 좋아요 버튼 (작성자가 아닐 때만 노출) */}
                 {!isAuthor && (
                   <button
                     onClick={handleLikeClick}
@@ -366,8 +348,6 @@ export default function PostDetailView({ post, currentUserId }: Props) {
                     </svg>
                   </button>
                 )}
-
-                {/* 2. 댓글 버튼 (항상 노출) */}
                 <button className="focus:outline-none hover:opacity-60 transition-opacity">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -384,8 +364,6 @@ export default function PostDetailView({ post, currentUserId }: Props) {
                     />
                   </svg>
                 </button>
-
-                {/* 3. 공유 버튼 (작성자가 아닐 때만 노출) */}
                 {!isAuthor && (
                   <button className="focus:outline-none hover:opacity-60 transition-opacity">
                     <svg
@@ -405,8 +383,6 @@ export default function PostDetailView({ post, currentUserId }: Props) {
                   </button>
                 )}
               </div>
-
-              {/* ✅ 우측: 좋아요 개수 (여기 자리로 이동) */}
               <div className="font-semibold text-sm text-gray-900">
                 좋아요 {optimisticState.likeCount}개
               </div>

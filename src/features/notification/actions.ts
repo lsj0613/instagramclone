@@ -1,65 +1,50 @@
-// src/lib/actions/notification.actions.ts
+// src/features/notification/actions.ts
 "use server";
 
-import db from "@/lib/db";
-import { desc, eq } from "drizzle-orm";
-import { notifications } from "@/db/schema";
 import { unstable_noStore as noStore } from "next/cache";
-
-// 1. 쿼리 실행 함수 (내부용) - export 안 해도 됨
-// 이걸 따로 분리해야 리턴 타입을 자동으로 뽑아낼 수 있습니다.
-const getNotificationsQuery = async (userId: string, limit: number) => {
-  return await db.query.notifications.findMany({
-    where: eq(notifications.recipientId, userId),
-    with: {
-      actor: {
-        columns: {
-          id: true,
-          username: true,
-          profileImage: true,
-        },
-      },
-      post: {
-        columns: {
-          id: true,
-        },
-      },
-    },
-    orderBy: [desc(notifications.createdAt)],
-    limit: limit,
-  });
-};
-
-// 2. ✨ 마법의 타입 자동 생성
-// 손으로 InferSelectModel, Pick 등을 적을 필요가 사라집니다.
-export type NotificationWithRelations = Awaited<ReturnType<typeof getNotificationsQuery>>[number];
+import {
+  getNotifications,
+  type NotificationWithRelations,
+} from "@/services/notification.service";
+import { auth } from "@/lib/auth"; // ⭐️ auth 가져오기
 
 interface NotificationResponse {
   success: boolean;
-  data?: NotificationWithRelations[]; // 위에서 만든 타입 사용
+  data?: NotificationWithRelations[];
   error?: string;
 }
 
-// 3. 실제 액션 함수
-export async function getNotificationsByUserId(
-  userId: string,
+// ⭐️ userId 인자 제거
+export async function getNotificationsByUserIdAction(
   limit = 20
 ): Promise<NotificationResponse> {
-
   noStore();
 
   try {
-    // 위에서 정의한 쿼리 함수 호출
-    const notification = await getNotificationsQuery(userId, limit);
+    // 1. 세션에서 사용자 ID 추출 (보안의 핵심)
+    const session = await auth();
+    const userId = session?.user?.id;
+
+    if (!userId) {
+      // 로그인하지 않은 사용자의 접근 차단
+      return {
+        success: false,
+        error: "로그인이 필요한 서비스입니다.",
+      };
+    }
+
+    // 2. 서비스 호출 (추출한 userId 사용)
+    const data = await getNotifications(userId, limit);
 
     return {
       success: true,
-      data: notification,
+      data: data,
     };
   } catch (error) {
+    console.error("Notification Error:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "알림 조회 오류",
+      error: "알림을 불러오는 중 오류가 발생했습니다.",
     };
   }
 }

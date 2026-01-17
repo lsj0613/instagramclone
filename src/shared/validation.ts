@@ -1,23 +1,19 @@
 import { z } from 'zod';
 
 export const PostCreateSchema = z.object({
-  // 이제 images는 파일이 아니라 유효한 URL 문자열 배열이어야 합니다.
-  images: z
-    .array(z.string().url("유효한 이미지 URL이 필요합니다."))
-    .min(1, "최소 한 장의 이미지가 필요합니다."),
-  
-  caption: z
-    .string()
-    .max(2200, "본문은 2200자 이내여야 합니다.")
-    .optional(),
-  
-  location: z
-    .string()
-    .optional(),
+  authorId: z.string().uuid(), // UUID 형식인지 검증
+  caption: z.string(),
+  locationName: z.string().optional(), // undefined 허용
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  // 이미지 URL 배열 (최소 1장 이상 필수라면 .min(1) 추가)
+  images: z.array(z.string().url()).min(1, "이미지는 최소 1장 필요합니다."),
 });
 
-// Zod 스키마로부터 타입 추론
-export type PostCreateInput = z.infer<typeof PostCreateSchema>;
+// 2. ⭐️ 핵심: 스키마로부터 TypeScript 타입 자동 추출
+// 이제 interface를 따로 만들 필요가 없습니다.
+export type CreatePostParams = z.infer<typeof PostCreateSchema>;
+
 
 export const LoginSchema = z.object({
   email: z.string().email("유효한 이메일 형식이 아닙니다."),
@@ -35,3 +31,7 @@ export const SignupSchema = z.object({
 });
 
 export type SignupInput = z.infer<typeof SignupSchema>;
+
+export const UuidSchema = z
+  .string()
+  .uuid({ message: "유효하지 않은 ID 형식입니다." });

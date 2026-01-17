@@ -1,8 +1,9 @@
 'use client';
 
+import { SessionUser } from '@/lib/types';
 import { useState, useEffect } from 'react';
 
-export default function GreetingHeader({ userName }: { userName: string }) {
+export default function GreetingHeader({ currentUser }: { currentUser: SessionUser }) {
   const [greeting, setGreeting] = useState<string>("");
 
   useEffect(() => {
@@ -10,7 +11,7 @@ export default function GreetingHeader({ userName }: { userName: string }) {
       "오늘은 어떤 특별한 순간을 기록하고 싶으신가요?",
       "당신의 이야기를 들려주세요.",
       "멋진 사진을 공유해 볼까요?",
-      "오늘의 기분을 사진으로 표현해 보세요."
+      "오늘의 기분을 사진으로 표현해 보세요.",
     ];
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setGreeting(greetings[Math.floor(Math.random() * greetings.length)]);
@@ -18,13 +19,9 @@ export default function GreetingHeader({ userName }: { userName: string }) {
 
   return (
     <div className="mb-8">
-      <h1 className="text-2xl font-bold mb-2">
-        안녕하세요, {userName}님! 👋
-      </h1>
+      <h1 className="text-2xl font-bold mb-2">안녕하세요, {currentUser.name || currentUser.username}님! 👋</h1>
       {/* 클라이언트에서 확정되기 전까지 레이아웃 시프트 방지를 위한 최소 높이 유지 */}
-      <p className="text-gray-500 min-h-6">
-        {greeting}
-      </p>
+      <p className="text-gray-500 min-h-6">{greeting}</p>
     </div>
   );
 }

@@ -2,39 +2,20 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // 1. SVG 허용 설정
     dangerouslyAllowSVG: true,
-
-    // 2. 보안을 위한 CSP 설정 (SVG 내부 스크립트 실행 방지)
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
 
+    // 모든 https 프로토콜의 모든 호스트네임을 허용합니다.
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "avatars.githubusercontent.com",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "picsum.photos",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "loremflickr.com",
-        port: "",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "api.dicebear.com", // DiceBear 도메인
-        port: "",
-        pathname: "/**",
+        hostname: "**",
       },
     ],
   },
+  allowedDevOrigins: [
+    "3000-firebase-instagramclone-1766640599126.cluster-va5f6x3wzzh4stde63ddr3qgge.cloudworkstations.dev",
+  ],
 };
 
 export default nextConfig;

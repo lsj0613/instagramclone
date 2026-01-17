@@ -19,9 +19,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
 import Notificationlist from "../../../features/notification/components/NotificationList";
-import { searchUsers, SearchUser } from "@/features/user/actions/search-users";
+import { searchUsersAction, SearchUser } from "@/features/user/actions";
 
 interface SessionUser {
+  username?: string | null;
   name?: string | null;
   email?: string | null;
   id?: string;
@@ -53,7 +54,10 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
   >("none");
 
   // [2번 주자] isPending: 서버 요청이 시작된 후 ~ 응답 올 때까지 담당
-  const [state, dispatch, isPending] = useActionState(searchUsers, initialState);
+  const [state, dispatch, isPending] = useActionState(
+    searchUsersAction,
+    initialState
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -94,7 +98,7 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
     debouncedSearch(value);
   };
 
-  const currentUsername = currentUser?.name;
+  const currentUsername = currentUser?.username;
 
   const toggleExpand = (type: string) => {
     if (type === "search") {
@@ -245,7 +249,9 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
                           >
                             <div className="relative h-10 w-10 shrink-0">
                               <Image
-                                src={user.profileImage || "@/default-profile.png"}
+                                src={
+                                  user.profileImage || "@/default-profile.png"
+                                }
                                 alt={user.username}
                                 fill
                                 className="rounded-full object-cover border border-gray-200"

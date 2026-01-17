@@ -3,10 +3,8 @@
 import Notification from "./Notification";
 import { SessionUserProps } from "@/shared/components/layout/Sidebar";
 import { useEffect, useState } from "react";
-import {
-  getNotificationsByUserId,
-  NotificationWithRelations,
-} from "@/features/notification/actions";
+import { getNotificationsByUserIdAction } from "@/features/notification/actions";
+import { type NotificationWithRelations } from "@/services/notification.service";
 
 /**
  * @description 알림 데이터 배열을 받아 리스트 형태로 렌더링하는 컴포넌트
@@ -31,11 +29,12 @@ export default function NotificationList({ currentUser }: SessionUserProps) {
       setIsLoading(true);
       try {
         // 서버 액션 호출
-        const response = await getNotificationsByUserId(currentUser.id);
+        const response = await getNotificationsByUserIdAction();
 
         if (response.success && response.data) {
           setNotifications(response.data);
         }
+        
       } catch (error) {
         console.error("알림 불러오기 실패:", error);
       } finally {

@@ -9,6 +9,7 @@ import {
   index,
   boolean, // boolean 추가됨
   AnyPgColumn,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -17,22 +18,26 @@ import { relations } from "drizzle-orm";
 // -------------------------------------------------------------------
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
-  
-  // 구글 로그인 직후에는 임시 값을 넣거나 폼을 통해 입력받아야 하므로 
-  // 로직에 따라 null 허용 여부를 결정해야 합니다. 
-  // 여기서는 온보딩 완료 전까지 임시 유저네임을 유지하는 전략을 가정합니다.
+
+  // 사용자 고유 핸들 (예: @user123)
   username: text("username").notNull().unique(),
-  
+
+  // ⭐️ [추가됨] 사용자 실제 이름 또는 표시 이름
+  // 소셜 로그인 시 가져오거나, 온보딩 때 입력받습니다.
+  // 필수 값이 아니라면 .notNull()을 빼셔도 됩니다.
+  name: text("name"),
+
   email: text("email").notNull().unique(),
-  password: text("password"), // 소셜 로그인의 경우 null 가능
+  password: text("password"),
   profileImage: text("profile_image"),
   bio: text("bio"),
 
-  // [추가] 온보딩 완료 여부 플래그
-  // 이 필드가 false이면 미들웨어에서 /onboarding 페이지로 리다이렉트합니다.
-  hasFinishedOnboarding: boolean("has_finished_onboarding").default(false).notNull(),
+  // 온보딩 완료 여부 플래그
+  hasFinishedOnboarding: boolean("has_finished_onboarding")
+    .default(false)
+    .notNull(),
 
-  // [반정규화 필드]
+  // 반정규화 필드
   postCount: integer("post_count").default(0).notNull(),
   followerCount: integer("follower_count").default(0).notNull(),
   followingCount: integer("following_count").default(0).notNull(),
@@ -165,50 +170,52 @@ export const follows = pgTable(
 // -------------------------------------------------------------------
 // 7. 알림 테이블 (Notifications) [NEW ✨]
 // -------------------------------------------------------------------
+
+// 2. 알림 타입 Enum 정의
+// DB에는 'notification_type'이라는 이름의 새로운 타입이 생성됩니다.
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "LIKE",
+  "COMMENT",
+  "FOLLOW",
+  "REPLY",
+  "COMMENT_LIKE",
+]);
+
 export const notifications = pgTable(
   "notifications",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    
+
     recipientId: uuid("recipient_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-      
+
     actorId: uuid("actor_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-      
-    // [수정됨] 타입 정의 (주석으로 명시)
-    // 'FOLLOW' | 'LIKE' (게시물 좋아요) | 'COMMENT' (게시물 댓글) 
-    // 'REPLY' (대댓글) | 'COMMENT_LIKE' (댓글 좋아요)
-    type: text("type").notNull(),
-    
-    // 게시물 관련 알림일 때 사용 (FOLLOW 제외)
-    postId: uuid("post_id")
-      .references(() => posts.id, { onDelete: "cascade" }),
-    
-    // [추가됨] 대댓글이나 댓글 좋아요일 때, '어떤 댓글'인지 식별용
-    commentId: uuid("comment_id")
-      .references(() => comments.id, { onDelete: "cascade" }),
+
+    // 3. [수정됨] text() 대신 위에서 만든 Enum 사용
+    // 이제 이 컬럼에는 정의된 5가지 값만 들어갈 수 있습니다.
+    type: notificationTypeEnum("type").notNull(),
+
+    postId: uuid("post_id").references(() => posts.id, { onDelete: "cascade" }),
+
+    commentId: uuid("comment_id").references(() => comments.id, {
+      onDelete: "cascade",
+    }),
 
     isRead: boolean("is_read").default(false).notNull(),
-    
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    // 1. [조회용] 내 알림함 (변동 없음)
-    recipientIdCreatedAtIdx: index("notifications_recipient_id_created_at_idx").on(
-      table.recipientId,
-      table.createdAt
-    ),
+    recipientIdCreatedAtIdx: index(
+      "notifications_recipient_id_created_at_idx"
+    ).on(table.recipientId, table.createdAt),
 
-    // 2. [삭제/검색용] 인덱스 순서 최적화! ⭐️
-    // actorId(누가) -> type(뭘) -> postId(어디에) 순서가 가장 효율적입니다.
-    // 예: "내가(Actor) 한 팔로우(FOLLOW) 취소" -> actorId + type 만으로 검색 가능
-    // 예: "내가(Actor) 이 글(PostId)에 단 댓글(COMMENT) 삭제" -> actorId + type + postId 로 검색 가능
     undoActionIdx: index("notifications_undo_action_idx").on(
       table.actorId,
-      table.type, 
+      table.type,
       table.postId,
       table.commentId
     ),

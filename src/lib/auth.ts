@@ -5,30 +5,35 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { LoginSchema } from "@/shared/validation";
-import { JWT } from "next-auth/jwt";
 import NextAuth, { type DefaultSession } from "next-auth";
 
 // --- 1. 타입 정의 (Module Augmentation) ---
+
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      name: string; // null을 허용하지 않는 string으로 명시
+      username: string;
+      name: string | null;
       hasFinishedOnboarding: boolean;
+      profileImage: string | null; // ⭐️ 세션 타입에 추가
     } & DefaultSession["user"];
   }
 
   interface User {
+    username?: string;
     hasFinishedOnboarding?: boolean;
-    name?: string; // 여기도 string으로 명시
+    profileImage?: string | null; // ⭐️ User 타입에 추가
   }
 }
 
-declare module "next-auth/jwt" {
+declare module "@auth/core/jwt" {
   interface JWT {
     id: string;
-    name: string; // JWT 토큰 내의 name도 string으로 명시
+    username: string;
+    name: string | null;
     hasFinishedOnboarding: boolean;
+    profileImage: string | null; // ⭐️ JWT 토큰 타입에 추가
   }
 }
 
@@ -38,7 +43,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
-      // 동의창을 강제로 띄워 계정 선택을 유도
       authorization: {
         params: {
           prompt: "select_account",
@@ -64,9 +68,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (passwordMatch) {
             return {
               id: String(user.id),
-              name: user.username,
+              username: user.username,
+              name: user.name,
               email: user.email,
               hasFinishedOnboarding: user.hasFinishedOnboarding,
+              profileImage: user.profileImage, // ⭐️ 로그인 성공 시 반환 객체에 추가
             };
           }
         }
@@ -76,7 +82,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // 구글 로그인 시 DB에 유저가 없으면 '미완료' 상태로 생성
       if (account?.provider === "google" && user.email) {
         try {
           const existingUser = await db.query.users.findFirst({
@@ -84,7 +89,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
 
           if (!existingUser) {
-            // 초기 임시 유저네임 생성 (이후 온보딩에서 변경)
             const tempUsername =
               user.email.split("@")[0] +
               Math.random().toString(36).substring(2, 6);
@@ -92,8 +96,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             await db.insert(users).values({
               email: user.email,
               username: tempUsername,
-              profileImage: user.image,
-              hasFinishedOnboarding: false, // 온보딩 필요 상태로 설정
+              name: user.name ?? null,
+              profileImage: user.image, // 구글 프로필 이미지 저장
+              hasFinishedOnboarding: false,
             });
           }
         } catch (error) {
@@ -105,24 +110,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
 
     async jwt({ token, user, trigger, session }) {
-      // 1. 최초 로그인 시
       if (user) {
-        // DB에서 최신 정보를 가져와 토큰에 주입
+        // DB에서 최신 데이터 조회
         const dbUser = await db.query.users.findFirst({
-          where: eq(users.email, user.email!),
+          where: eq(users.email, token.email!),
         });
 
         if (dbUser) {
           token.id = String(dbUser.id);
-          token.name = dbUser.username;
+          token.username = dbUser.username;
+          token.name = dbUser.name;
           token.hasFinishedOnboarding = dbUser.hasFinishedOnboarding;
+          token.profileImage = dbUser.profileImage; // ⭐️ 토큰에 DB 이미지 저장
         }
       }
 
-      // 2. 세션 업데이트 시 (온보딩 완료 후 클라이언트에서 호출할 용도)
-      if (trigger === "update" && session) {
-        token.name = session.user.name;
-        token.hasFinishedOnboarding = session.user.hasFinishedOnboarding;
+      // ⭐️ 클라이언트에서 update() 호출 시 토큰 갱신 로직
+      if (trigger === "update" && session?.user) {
+        if (session.user.username) token.username = session.user.username;
+        if (session.user.name !== undefined) token.name = session.user.name;
+        if (session.user.hasFinishedOnboarding !== undefined)
+          token.hasFinishedOnboarding = session.user.hasFinishedOnboarding;
+
+        // 프사 변경 시 반영
+        if (session.user.profileImage !== undefined) {
+          token.profileImage = session.user.profileImage;
+        }
       }
 
       return token;
@@ -131,8 +144,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (token.id && session.user) {
         session.user.id = token.id;
-        session.user.name = token.name;
-        session.user.hasFinishedOnboarding = token.hasFinishedOnboarding;
+        session.user.username = token.username;
+        session.user.name = token.name ?? null;
+        session.user.hasFinishedOnboarding =
+          token.hasFinishedOnboarding ?? false;
+
+        // ⭐️ 토큰에 있는 이미지를 세션으로 전달 (없으면 null)
+        session.user.profileImage = token.profileImage ?? null;
       }
       return session;
     },

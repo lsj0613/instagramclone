@@ -6,16 +6,14 @@ import GreetingHeader from "../../features/post/components/GreetingHeader"; // �
 export default async function CreatePage() {
   const session = await auth();
 
-  if (!session?.user?.id) {
+  if (!session?.user) {
     redirect("/login");
   }
-
-  const userName = session.user.name || "사용자";
   
   return (
     <div className="max-w-xl mx-auto mt-10 p-4">
       {/* 클라이언트 컴포넌트로 분리하여 Hydration 오류 방지 */}
-      <GreetingHeader userName={userName} />
+      <GreetingHeader currentUser={session.user} />
       <CreatePostForm />{" "}
     </div>
   );

@@ -1,6 +1,36 @@
 import db from "@/lib/db";
 import { notifications } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
+
+// 1. 쿼리 함수 (export 필수)
+// 이름은 조금 더 명확하게 getNotifications로 변경해도 좋습니다.
+export const getNotifications = async (userId: string, limit: number) => {
+  return await db.query.notifications.findMany({
+    where: eq(notifications.recipientId, userId),
+    with: {
+      actor: {
+        columns: {
+          id: true,
+          username: true,
+          profileImage: true,
+        },
+      },
+      post: {
+        columns: {
+          id: true,
+        },
+      },
+    },
+    orderBy: [desc(notifications.createdAt)],
+    limit: limit,
+  });
+};
+
+// 2. ✨ 마법의 타입 자동 생성 (여기서 export)
+// 서비스 함수가 여기 있으므로, ReturnType 추론도 여기서 해야 합니다.
+export type NotificationWithRelations = Awaited<
+  ReturnType<typeof getNotifications>
+>[number];
 
 /**
  * 알림 생성에 필요한 파라미터 인터페이스

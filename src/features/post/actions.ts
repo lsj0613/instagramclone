@@ -11,82 +11,80 @@ import {
   deleteNotification,
   createNotification,
 } from "@/services/notification.service";
+import { ActionResponse } from "@/lib/types"; // 정의해둔 ActionState 타입 경로
 
-// 반환 값에 대한 타입 정의
-export interface createPostErrorResponse {
-  errors?: { images?: string[]; caption?: string[]; location?: string[] };
-  message?: string;
-}
-
-/*formData(caption, location, images)를 받아 새 Post를 db에 생성 */
-export async function createPost(
-  prevState: createPostErrorResponse | null, // 첫 번째 인자 추가
+/* formData(caption, location, images)를 받아 새 Post를 db에 생성 */
+export async function createPostAction(
+  prevState: ActionResponse | null, // 1. 타입 적용
   formData: FormData
-): Promise<createPostErrorResponse> {
+): Promise<ActionResponse> {
+  // 1. 인증 확인
   const session = await auth();
-  const currentUser = session?.user?.id;
+  const currentUser = session?.user;
 
   if (!currentUser) {
-    // 에러를 던져서 즉시 catch 블록으로 이동시킴 (아래 로직 실행 안 됨)
-    throw new Error("로그인이 필요한 서비스입니다.");
+    // 3. throw 대신 실패 상태 반환 (클라이언트에서 메시지 처리 가능)
+    return {
+      success: false,
+      message: "로그인이 필요한 서비스입니다.",
+    };
   }
-  const rawInput = {
-    // 이미지는 여러 개이므로 getAll() 사용
-    images: formData.getAll("images") as string[],
 
-    // 나머지는 하나씩이므로 get() 사용
-    // (빈 문자열이 올 경우 null이나 undefined로 처리하고 싶다면 여기서 변환 로직 추가 가능)
-    caption: formData.get("caption")?.toString() || undefined,
-    location: formData.get("location")?.toString() || undefined,
+  // 2. 데이터 추출 및 전처리
+  // ⭐️ 중요: formData 값은 다 string이므로 숫자로 변환 필요
+  const latStr = formData.get("latitude")?.toString();
+  const lngStr = formData.get("longitude")?.toString();
+
+  const rawInput = {
+    authorId: currentUser.id,
+    caption: formData.get("caption")?.toString() || "", // 필수면 빈 문자열로 넘겨서 Zod가 잡게 함
+    locationName: formData.get("locationName")?.toString() || undefined,
+    // ⭐️ 숫자로 변환 (값이 있으면 변환, 없으면 undefined)
+    latitude: latStr ? parseFloat(latStr) : undefined,
+    longitude: lngStr ? parseFloat(lngStr) : undefined,
+    images: formData.getAll("images") as string[],
   };
 
-  // 1-1. (선택사항) 빈 문자열 이미지 URL 필터링 등 기초적인 정제
-  // Zod의 .url() 검사 전에 명백히 잘못된 데이터(빈 값)는 미리 쳐내는 게 깔끔할 수 있습니다.
+  // 빈 이미지 URL 필터링
   rawInput.images = rawInput.images.filter((url) => url.trim() !== "");
 
-  // 2. 공유된 스키마로 검증 (Validation)
+  // 3. Zod 검증
   const validation = PostCreateSchema.safeParse(rawInput);
 
   if (!validation.success) {
-    // 검증 실패 시 에러 반환
+    // 4. 유효성 검사 실패 시 fieldErrors에 담아 반환
     return {
-      errors: validation.error.flatten().fieldErrors,
+      success: false,
       message: "입력값을 확인해주세요.",
+      fieldErrors: validation.error.flatten().fieldErrors,
     };
   }
 
-  // 3. 검증 통과된 데이터 사용
-  const validatedData = validation.data;
-  // validatedData는 이제 { images: string[], caption?: string, location?: string } 타입이 확실함
+  // 4. DB 저장 시도
   try {
-    // 2. 데이터베이스 저장
-    await createPostInDB({
-      authorId: currentUser,
-      caption: validatedData.caption as string,
-      locationName: validatedData.location, // 스키마의 locationName과 매칭
-      images: validatedData.images,
-    });
+    const validatedData = validation.data;
+
+    await createPostInDB(validatedData);
+
+    // 5. 성공 시 데이터 갱신 (DB 저장이 성공했을 때만 실행)
+    revalidatePath(`/profile/${session?.user?.username}`);
+    revalidatePath("/");
   } catch (error) {
-    let errorMessage = "알 수 없는 오류가 발생했습니다.";
+    // 6. DB/서버 에러 처리
+    console.error("Create Post Error:", error);
 
-    if (error instanceof Error) {
-      // 1. 표준 에러 객체인 경우
-      errorMessage = error.message;
-    } else if (typeof error === "string") {
-      // 2. 문자열만 던져진 경우
-      errorMessage = error;
-    }
-
-    // 로그 기록 (서버 사이드)
-    console.error("실제 에러 로그:", error);
-
+    // 에러 메시지 추출 로직
+    const userMessage =
+      "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요."; // 기본 메시지
+    /* 에러 메시지 핸들링 - <할것> */
     return {
-      message: errorMessage,
+      success: false,
+      message: userMessage,
     };
   }
-  revalidatePath(`/profile/${session?.user?.name}`);
 
-  redirect(`/profile/${session?.user?.name}`);
+  // 7. 성공 시 페이지 이동 (try-catch 밖에서 실행해야 함)
+  redirect(`/profile/${session?.user?.username}`);
 }
 
 export async function togglePostLikeAction(postId: string) {
@@ -196,34 +194,49 @@ export async function togglePostLikeAction(postId: string) {
   }
 }
 
-
 // ✅ 실제 구현 (bind 사용 시)
 export async function deletePostAction(
-  postId: string,      // 1. bind로 넘겨준 값 (가장 먼저 옴)
-  prevState: null | {message : string},      // 2. useActionState가 넣어주는 이전 상태
-  formData: FormData   // 3. form이 제출될 때 들어오는 데이터 (여기선 안 씀)
-) {
-  
+  postId: string,
+  prevState: null | ActionResponse,
+  formData: FormData
+): Promise<ActionResponse> {
   const session = await auth();
   if (!session || !session.user?.id) {
-      return { success: false, message: "로그인이 필요합니다." };
+    return { success: false, message: "로그인이 필요합니다." };
   }
-  
-  try {
-    // DB 삭제 로직 (postId와 session.user.id로 검증)
-    const deletedPost = await deletePostInDb(postId, session.user.id);
 
-    if (!deletedPost) {
-      return { success: false, message: "삭제 권한이 없거나 이미 삭제되었습니다." };
+  try {
+    // ⭐️ [Happy Path]
+    // 이제 null 체크를 할 필요가 없습니다.
+    // 실패(권한 없음, 게시물 없음)하면 deletePostInDb가 알아서 에러를 던져서 catch로 보냅니다.
+    await deletePostInDb(postId, session.user.id);
+
+    // 여기까지 코드가 도달했다는 건 무조건 성공했다는 뜻입니다.
+    revalidatePath("/");
+    revalidatePath(`/profile/${session.user.username}`);
+  } catch (error) {
+    // 서버 로그에는 전체 에러를 찍어서 디버깅을 용이하게 합니다.
+    console.error("[DeletePostAction Error]:", error);
+
+    // 에러 객체에서 메시지 추출
+    const errorMessage = error instanceof Error ? error.message : "";
+
+    // 🕵️‍♂️ 에러 종류에 따라 사용자에게 보여줄 메시지 분기
+    if (errorMessage === "POST_NOT_FOUND_OR_UNAUTHORIZED") {
+      // 의도된 비즈니스 로직 에러
+      return {
+        success: false,
+        message: "삭제 권한이 없거나 이미 삭제되었습니다.",
+      };
     }
 
-    revalidatePath("/");
-    revalidatePath(`/profile/${session.user.name}`);
-  } catch (error) {
-    console.error(error);
-    return { success: false, message: "서버 오류가 발생했습니다." };
+    // 그 외 예측 불가능한 시스템 에러 (DB 연결 끊김 등)
+    return {
+      success: false,
+      message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+    };
   }
 
-  // 성공 시 이동
-  redirect(`/profile/${session.user.name}`);
+  // 성공 시 이동 (try-catch 밖에서 실행)
+  redirect(`/profile/${session.user.username}`);
 }

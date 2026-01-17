@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useActionState, startTransition } from "react";
-import { createPost } from "@/features/post/actions";
+import { createPostAction } from "@/features/post/actions";
 import ImagePreview from "./ImagePreview";
 import { Loader2, MapPin, ImagePlus, XCircle, FileText } from "lucide-react"; // 아이콘 임포트
 import { uploadToCloudinaryClient } from "@/shared/utils/upload";
@@ -9,7 +9,10 @@ import { uploadToCloudinaryClient } from "@/shared/utils/upload";
 
 export default function CreatePostForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [state, formAction, isActionPending] = useActionState(createPost, null);
+  const [state, formAction, isActionPending] = useActionState(
+    createPostAction,
+    null
+  );
   
   // 1. 업로드 상태를 관리할 state 추가
   const [isUploading, setIsUploading] = useState(false); 
@@ -123,7 +126,7 @@ export default function CreatePostForm() {
                   ? "border-blue-500 bg-blue-50/50 scale-[1.01]"
                   : "border-gray-200 hover:border-blue-400 hover:bg-gray-50"
               }
-              ${state?.errors?.images ? "border-red-300 bg-red-50" : ""}
+              ${state?.fieldErrors?.images ? "border-red-300 bg-red-50" : ""}
             `}
           >
             <input
@@ -152,9 +155,9 @@ export default function CreatePostForm() {
             </div>
           </div>
 
-          {state?.errors?.images && (
+          {state?.fieldErrors?.images && (
             <p className="text-xs text-red-500 font-medium pl-1">
-              * {state?.errors.images}
+              * {state?.fieldErrors.images}
             </p>
           )}
 
@@ -192,7 +195,7 @@ export default function CreatePostForm() {
                 w-full pl-10 p-3 bg-gray-50 border rounded-xl outline-none transition-all resize-none
                 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
                 ${
-                  state?.errors?.caption
+                  state?.fieldErrors?.caption
                     ? "border-red-300 focus:border-red-500"
                     : "border-gray-200"
                 }
@@ -200,9 +203,9 @@ export default function CreatePostForm() {
               placeholder="사진에 대한 설명을 적어주세요..."
             />
           </div>
-          {state?.errors?.caption && (
+          {state?.fieldErrors?.caption && (
             <p className="text-xs text-red-500 font-medium pl-1">
-              * {state.errors.caption}
+              * {state.fieldErrors.caption}
             </p>
           )}
         </div>
@@ -210,7 +213,7 @@ export default function CreatePostForm() {
         {/* 위치 입력 */}
         <div className="space-y-2">
           <label
-            htmlFor="location"
+            htmlFor="locationName"
             className="block text-sm font-semibold text-gray-700"
           >
             위치 추가{" "}
@@ -222,8 +225,8 @@ export default function CreatePostForm() {
             </div>
             <input
               type="text"
-              id="location"
-              name="location"
+              id="locationName"
+              name="locationName"
               className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               placeholder="예: 서울특별시 강남구"
             />
