@@ -4,28 +4,26 @@ import { ilike, or } from "drizzle-orm";
 import { users } from "@/db/schema";
 import db from "@/lib/db";
 import { ActionResponse } from "@/lib/types";
+import { ERROR_MESSAGES } from "@/shared/constants";
 
 export interface SearchUser {
   id: string;
   username: string;
-  name: string | null
+  name: string | null;
   profileImage: string | null;
 }
-
 
 export async function searchUsersAction(
   prevstate: ActionResponse<SearchUser[]> | null,
   query: string
 ): Promise<ActionResponse<SearchUser[]>> {
   try {
+    // 검색어가 없으면 빈 배열 반환 (성공으로 처리)
     if (!query || query.trim() === "") {
       return { success: true, data: [] };
     }
 
     const searchPattern = `%${query}%`;
-
-    // 2. Drizzle Query 수행
-    // select를 통해 필요한 필드만 가져옴 (Projection)
 
     const searchResults = await db
       .select({
@@ -36,7 +34,6 @@ export async function searchUsersAction(
       })
       .from(users)
       .where(
-        // ⭐️ [수정] username 또는 name 둘 중 하나라도 포함되면 검색
         or(
           ilike(users.username, searchPattern),
           ilike(users.name, searchPattern)
@@ -46,13 +43,14 @@ export async function searchUsersAction(
 
     return {
       success: true,
-      data: searchResults,
+      data: searchResults, // 결과가 없으면 자연스럽게 []가 들어갑니다.
     };
   } catch (error) {
-    console.error("Atlas Search error:", error);
+    console.error("Search error:", error);
     return {
       success: false,
-      error: "검색 중 오류가 발생했습니다.",
+      // ⭐️ 수정됨: fieldErrors(객체) 대신 message(문자열) 필드 사용
+      message: ERROR_MESSAGES.SEARCH_ERROR,
     };
   }
 }

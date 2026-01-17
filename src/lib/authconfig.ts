@@ -1,7 +1,7 @@
 "use server";
 
 import { signIn } from "@/lib/auth"; // auth.ts에서 내보낸 signIn 함수
-import { LoginSchema } from "@/shared/validation"; // 유효성 검사 스키마
+import { LoginSchema } from "@/shared/utils/validation"; // 유효성 검사 스키마
 import { AuthError } from "next-auth";
 import { z } from "zod";
 

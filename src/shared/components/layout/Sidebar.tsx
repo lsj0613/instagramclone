@@ -20,6 +20,7 @@ import {
 import { cn } from "@/shared/utils/utils";
 import Notificationlist from "../../../features/notification/components/NotificationList";
 import { searchUsersAction, SearchUser } from "@/features/user/actions";
+import { UI_TEXT } from "@/shared/constants"; // ⭐️ 상수 임포트
 
 interface SessionUser {
   username?: string | null;
@@ -40,7 +41,7 @@ const initialState = {
 
 const BASE_NAV_ITEMS = [
   { name: "홈", href: "/", icon: Home, type: "link" },
-  { name: "검색", href: "#", icon: Search, type: "search" },
+  { name: UI_TEXT.Search, href: "#", icon: Search, type: "search" }, // [수정] 상수 적용
   { name: "알림", href: "#", icon: Heart, type: "notifications" },
   { name: "메시지", href: "/messages", icon: MessageCircle, type: "link" },
   { name: "만들기", href: "/createpost", icon: PlusSquare, type: "link" },
@@ -70,13 +71,9 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
   // 디바운스 콜백
   const debouncedSearch = useDebouncedCallback((value: string) => {
     // [바통 터치 구간]
-    // 0.5초가 지나서 이 함수가 실행되는 순간,
-    // 1. 서버 액션을 시작시켜서 'isPending'을 true로 만듭니다. (2번 주자 출발)
     startTransition(() => {
       dispatch(value);
     });
-
-    // 2. 동시에 로컬 대기 상태는 끕니다. (1번 주자 퇴장)
     setIsDebouncing(false);
   }, 500);
 
@@ -86,14 +83,12 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
 
     // 검색어를 다 지운 경우
     if (value.trim() === "") {
-      setIsDebouncing(false); // 즉시 1번 주자 멈춤
-      debouncedSearch.cancel(); // 예약된 2번 주자 출발 취소
-      // (선택) 이전 결과를 지우고 싶다면 여기서 별도 처리가 필요할 수 있습니다.
+      setIsDebouncing(false);
+      debouncedSearch.cancel();
       return;
     }
 
     // [1번 주자 출발]
-    // 입력하자마자 로딩 상태를 켜서 사용자에게 즉각 피드백 제공
     setIsDebouncing(true);
     debouncedSearch(value);
   };
@@ -194,13 +189,18 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
           )}
         >
           <div className="flex h-full flex-col p-6 w-80">
+            {/* -------------------- 검색 패널 -------------------- */}
             {expandedState === "search" && (
               <>
-                <h2 className="mb-6 text-xl font-bold font-sans">검색</h2>
+                {/* [수정] 상수 적용 */}
+                <h2 className="mb-6 text-xl font-bold font-sans">
+                  {UI_TEXT.Search}
+                </h2>
                 <div className="relative mb-6">
                   <input
                     type="text"
-                    placeholder="검색"
+                    // [수정] 상수 적용
+                    placeholder={UI_TEXT.SearchPlaceholder}
                     value={searchQuery}
                     onChange={handleSearchChange}
                     className="w-full rounded-md bg-gray-100 p-2 pl-3 outline-none focus:ring-1 focus:ring-gray-300 text-sm placeholder:text-gray-500 text-black"
@@ -227,14 +227,16 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
                   {!searchQuery ? (
                     /* 1. 검색어가 없을 때 */
                     <div className="mt-8 border-t pt-8 text-center text-sm text-gray-400">
-                      검색어를 입력하세요.
+                      {/* [수정] 상수 적용 */}
+                      {UI_TEXT.StartSearch}
                     </div>
                   ) : isLoading ? (
                     /* 2. 로딩 중 (디바운스 중 OR 서버 요청 중) - 이전 결과 숨김 */
                     <div className="mt-8 flex justify-center text-gray-400">
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="animate-spin" />
-                        <span className="text-xs">검색 중...</span>
+                        {/* [수정] 상수 적용 */}
+                        <span className="text-xs">{UI_TEXT.Searching}</span>
                       </div>
                     </div>
                   ) : searchResults.length > 0 ? (
@@ -250,7 +252,7 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
                             <div className="relative h-10 w-10 shrink-0">
                               <Image
                                 src={
-                                  user.profileImage || "@/default-profile.png"
+                                  user.profileImage || "/default-profile.png" // [수정] 경로 문자열 오타 수정 (@/ -> /)
                                 }
                                 alt={user.username}
                                 fill
@@ -261,6 +263,12 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
                               <span className="font-semibold text-sm truncate">
                                 {user.username}
                               </span>
+                              {/* (선택) 이름이 있으면 보여주기 */}
+                              {user.name && (
+                                <span className="text-xs text-gray-500 truncate">
+                                  {user.name}
+                                </span>
+                              )}
                             </div>
                           </Link>
                         </li>
@@ -269,13 +277,15 @@ export default function Sidebar({ currentUser }: SessionUserProps) {
                   ) : (
                     /* 4. 로딩 끝 & 결과 없음 */
                     <div className="mt-8 border-t pt-8 text-center text-sm text-gray-400">
-                      검색 결과가 없습니다.
+                      {/* [수정] 상수 적용 */}
+                      {UI_TEXT.NoSearchResults}
                     </div>
                   )}
                 </div>
               </>
             )}
 
+            {/* -------------------- 알림 패널 -------------------- */}
             {expandedState === "notifications" && (
               <>
                 <h2 className="mb-6 text-xl font-bold font-sans">알림</h2>

@@ -4,7 +4,7 @@ import db from "@/lib/db";
 import { likes, posts, postImages, users } from "@/db/schema"; // users 추가
 import { and, eq, sql } from "drizzle-orm"; // eq, sql 추가
 import { cache } from "react";
-import { CreatePostParams, UuidSchema } from "@/shared/validation";
+import { CreatePostParams, UuidSchema } from "@/shared/utils/validation";
 
 // -------------------------------------------------------------------
 // 1. 타입 헬퍼

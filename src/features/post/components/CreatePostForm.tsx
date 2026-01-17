@@ -3,9 +3,9 @@
 import { useState, useRef, useActionState, startTransition } from "react";
 import { createPostAction } from "@/features/post/actions";
 import ImagePreview from "./ImagePreview";
-import { Loader2, MapPin, ImagePlus, XCircle, FileText } from "lucide-react"; // 아이콘 임포트
+import { Loader2, MapPin, ImagePlus, XCircle, FileText } from "lucide-react";
 import { uploadToCloudinaryClient } from "@/shared/utils/upload";
-
+import { UI_TEXT } from "@/shared/constants"; // ⭐️ 상수 임포트
 
 export default function CreatePostForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -13,12 +13,9 @@ export default function CreatePostForm() {
     createPostAction,
     null
   );
-  
-  // 1. 업로드 상태를 관리할 state 추가
-  const [isUploading, setIsUploading] = useState(false); 
 
-  // 2. 둘 중 하나라도 진행 중이면 로딩으로 취급
-  const isPending = isUploading || isActionPending;  // UI 상태 관리
+  const [isUploading, setIsUploading] = useState(false);
+  const isPending = isUploading || isActionPending;
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -33,15 +30,14 @@ export default function CreatePostForm() {
       const imageUrls = await Promise.all(uploadPromises);
       formData.delete("images");
       imageUrls.forEach((url) => {
-        formData.append("images", url); // 동일한 키로 여러 번 추가
-      }); // 액션)
+        formData.append("images", url);
+      });
 
       startTransition(() => {
-        formAction(formData); // 여기서부터는 isActionPending이 true가 됨
+        formAction(formData);
       });
-        } catch (error) {
+    } catch (error) {
       console.error("Upload failed:", error);
-      // 에러 처리 로직 (사용자 알림 등)
     }
     setIsUploading(false);
   }
@@ -90,13 +86,16 @@ export default function CreatePostForm() {
         className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 space-y-8"
       >
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-gray-900">새 게시물 만들기</h2>
+          {/* [변경] 상수로 대체 */}
+          <h2 className="text-2xl font-bold text-gray-900">
+            {UI_TEXT.CreatePostTitle}
+          </h2>
           <p className="text-sm text-gray-500">
-            당신의 특별한 순간을 공유해보세요.
+            {/* [변경] 상수로 대체 */}
+            {UI_TEXT.CreatePostDesc}
           </p>
         </div>
 
-        {/* 전역 에러 메시지 */}
         {state?.message && (
           <div
             className="flex items-center gap-2 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium animate-pulse"
@@ -110,8 +109,12 @@ export default function CreatePostForm() {
         {/* 파일 업로드 영역 */}
         <div className="space-y-4">
           <label className="block text-sm font-semibold text-gray-700">
-            사진 업로드{" "}
-            <span className="text-blue-500 text-xs font-normal">(필수)</span>
+            {/* [변경] 상수로 대체 */}
+            {UI_TEXT.UploadPhoto}{" "}
+            <span className="text-blue-500 text-xs font-normal">
+              {/* [변경] 상수로 대체 */}
+              {UI_TEXT.Required}
+            </span>
           </label>
 
           <div
@@ -139,17 +142,18 @@ export default function CreatePostForm() {
               className="hidden"
             />
 
-            {/* 아이콘 및 안내 문구 */}
             <div className="flex flex-col items-center gap-3 text-gray-400 group-hover:text-blue-500 transition-colors">
               <div className="p-3 bg-gray-50 rounded-full group-hover:bg-blue-100 transition-colors">
                 <ImagePlus size={32} />
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-gray-700">
-                  클릭하여 업로드하거나
+                  {/* [변경] 상수로 대체 */}
+                  {UI_TEXT.ClickToUpload}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
-                  이미지를 여기로 끌어오세요
+                  {/* [변경] 상수로 대체 */}
+                  {UI_TEXT.DragAndDrop}
                 </p>
               </div>
             </div>
@@ -161,7 +165,6 @@ export default function CreatePostForm() {
             </p>
           )}
 
-          {/* 미리보기 영역 (Grid Layout 개선) */}
           {files.length > 0 && (
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 mt-4">
               {files.map((file, index) => (
@@ -181,7 +184,8 @@ export default function CreatePostForm() {
             htmlFor="caption"
             className="block text-sm font-semibold text-gray-700"
           >
-            문구 입력
+            {/* [변경] 상수로 대체 */}
+            {UI_TEXT.EnterCaption}
           </label>
           <div className="relative">
             <div className="absolute top-3 left-3 text-gray-400">
@@ -200,7 +204,8 @@ export default function CreatePostForm() {
                     : "border-gray-200"
                 }
               `}
-              placeholder="사진에 대한 설명을 적어주세요..."
+              // [변경] 상수로 대체
+              placeholder={UI_TEXT.CaptionPlaceholder}
             />
           </div>
           {state?.fieldErrors?.caption && (
@@ -216,8 +221,12 @@ export default function CreatePostForm() {
             htmlFor="locationName"
             className="block text-sm font-semibold text-gray-700"
           >
-            위치 추가{" "}
-            <span className="text-gray-400 text-xs font-normal">(선택)</span>
+            {/* [변경] 상수로 대체 */}
+            {UI_TEXT.AddLocation}{" "}
+            <span className="text-gray-400 text-xs font-normal">
+              {/* [변경] 상수로 대체 */}
+              {UI_TEXT.Optional}
+            </span>
           </label>
           <div className="relative">
             <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -228,7 +237,8 @@ export default function CreatePostForm() {
               id="locationName"
               name="locationName"
               className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-              placeholder="예: 서울특별시 강남구"
+              // [변경] 상수로 대체
+              placeholder={UI_TEXT.LocationPlaceholder}
             />
           </div>
         </div>
@@ -242,10 +252,12 @@ export default function CreatePostForm() {
           {isPending ? (
             <>
               <Loader2 className="animate-spin mr-2" size={20} />
-              게시 중...
+              {/* [변경] 상수로 대체 */}
+              {UI_TEXT.Posting}
             </>
           ) : (
-            "공유하기"
+            // [변경] 상수로 대체
+            UI_TEXT.Share
           )}
         </button>
       </form>

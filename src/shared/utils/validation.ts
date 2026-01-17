@@ -7,7 +7,21 @@ export const PostCreateSchema = z.object({
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   // 이미지 URL 배열 (최소 1장 이상 필수라면 .min(1) 추가)
-  images: z.array(z.string().url()).min(1, "이미지는 최소 1장 필요합니다."),
+  images: z.preprocess(
+    (val) => {
+      // 1) 값이 없으면 빈 배열
+      if (!val) return [];
+      // 2) 배열이면 내부 요소 중 문자열이면서 빈 값이 아닌 것만 필터링
+      if (Array.isArray(val)) {
+        return val.filter(
+          (item) => typeof item === "string" && item.trim() !== ""
+        );
+      }
+      return [];
+    },
+    // 2. 검증: 결과가 문자열 배열이어야 하고, 최소 1개 이상이어야 함
+    z.array(z.string().url()).min(1, "이미지는 최소 1장 필요합니다.")
+  ),
 });
 
 // 2. ⭐️ 핵심: 스키마로부터 TypeScript 타입 자동 추출

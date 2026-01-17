@@ -1,12 +1,14 @@
 "use server";
 
 import { v2 as cloudinary } from "cloudinary";
+import { env } from "@/lib/env";
+
 
 // Cloudinary 설정 (환경변수 확인 필수)
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: env.CLOUDINARY_CLOUD_NAME,
+  api_key: env.CLOUDINARY_API_KEY,
+  api_secret: env.CLOUDINARY_API_SECRET,
 });
 
 export async function getCloudinarySignature() {
@@ -20,7 +22,7 @@ export async function getCloudinarySignature() {
       timestamp: timestamp,
       folder: "user_posts", // 업로드할 폴더명 (클라이언트와 일치해야 함)
     },
-    process.env.CLOUDINARY_API_SECRET!
+    env.CLOUDINARY_API_SECRET!
   );
 
   return { timestamp, signature };

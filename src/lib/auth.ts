@@ -4,8 +4,9 @@ import db from "@/lib/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
-import { LoginSchema } from "@/shared/validation";
+import { LoginSchema } from "@/shared/utils/validation";
 import NextAuth, { type DefaultSession } from "next-auth";
+import { env } from "@/lib/env";
 
 // --- 1. 타입 정의 (Module Augmentation) ---
 
@@ -41,8 +42,8 @@ declare module "@auth/core/jwt" {
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Google({
-      clientId: process.env.AUTH_GOOGLE_ID,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      clientId: env.AUTH_GOOGLE_ID,
+      clientSecret: env.AUTH_GOOGLE_SECRET,
       authorization: {
         params: {
           prompt: "select_account",

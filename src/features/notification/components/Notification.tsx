@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
-import { NotificationWithRelations } from "../actions";
+import { NotificationWithRelations } from "@/services/notification.service";
 import { Suspense } from "react";
 import NotificationSkeleton from "./NotificationSkeleton";
+import { UI_TEXT } from "@/shared/constants"; // ⭐️ 상수 임포트
 
 interface NotificationProps {
   notification: NotificationWithRelations;
@@ -20,31 +21,34 @@ export default function Notification({ notification }: NotificationProps) {
     switch (type) {
       case "LIKE":
         return {
-          text: "님이 회원님의 게시물을 좋아합니다.",
+          text: UI_TEXT.NotificationLike, // [변경] 상수 적용
           href: `/post/${postId}`,
         };
       case "COMMENT":
         return {
-          text: "님이 회원님의 게시물에 댓글을 남겼습니다.",
+          text: UI_TEXT.NotificationComment, // [변경] 상수 적용
           href: `/post/${postId}`,
         };
       case "FOLLOW":
         return {
-          text: "님이 회원님을 팔로우하기 시작했습니다.",
+          text: UI_TEXT.NotificationFollow, // [변경] 상수 적용
           href: `/profile/${actor.username}`,
         };
       case "REPLY":
         return {
-          text: "님이 회원님의 게시물에 댓글을 남겼습니다.",
+          text: UI_TEXT.NotificationReply, // [변경] 상수 적용 ('댓글에 답글'로 텍스트 개선)
           href: `/post/${postId}`,
         };
       case "COMMENT_LIKE":
         return {
-          text: "님이 회원님의 댓글을 좋아합니다.",
+          text: UI_TEXT.NotificationCommentLike, // [변경] 상수 적용
           href: `/post/${postId}`,
         };
       default:
-        return { text: "알림이 도착했습니다.", href: "#" };
+        return {
+          text: UI_TEXT.NotificationDefault, // [변경] 상수 적용
+          href: "#",
+        };
     }
   };
 
@@ -74,7 +78,7 @@ export default function Notification({ notification }: NotificationProps) {
             {content.text}
           </p>
 
-          {/* 상대 시간 표시 (문자열인 createdAt을 Date 객체로 변환하여 처리) */}
+          {/* 상대 시간 표시 */}
           <span className="mt-1 text-xs text-gray-500">
             {formatDistanceToNow(new Date(createdAt), {
               addSuffix: true,

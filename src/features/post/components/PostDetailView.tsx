@@ -15,6 +15,7 @@ import {
 } from "@/features/post/actions";
 import { PostInfo, SessionUser } from "@/lib/types";
 import Link from "next/link";
+import { UI_TEXT } from "@/shared/constants"; // ⭐️ 상수 임포트 경로에 맞게 수정해주세요
 
 interface Props {
   post: PostInfo;
@@ -204,7 +205,7 @@ export default function PostDetailView({ post, currentUser }: Props) {
 
         {/* --- [우측] 정보 및 액션 영역 --- */}
         <div className="w-full md:w-[45%] lg:w-[40%] flex flex-col h-full bg-white relative">
-          {/* 1. 통합 헤더 (수정됨 ✨) */}
+          {/* 1. 통합 헤더 */}
           <div className="p-4 border-b border-gray-100 flex gap-3 items-start shrink-0">
             {/* 프로필 이미지 */}
             <div className="w-10 h-10 rounded-full border border-gray-200 relative overflow-hidden shrink-0">
@@ -218,7 +219,7 @@ export default function PostDetailView({ post, currentUser }: Props) {
 
             {/* 유저 정보 및 캡션 영역 */}
             <div className="flex-1 min-w-0 pt-0.5">
-              {/* 유저 아이디 & 실명 (수직 배치) */}
+              {/* 유저 아이디 & 실명 */}
               <div className="flex flex-col">
                 <Link
                   href={`/profile/${post.author.username}`}
@@ -226,7 +227,6 @@ export default function PostDetailView({ post, currentUser }: Props) {
                 >
                   {post.author.username}
                 </Link>
-                {/* 실명 표시 (있을 경우에만) */}
                 {post.author.name && (
                   <span className="text-xs text-gray-500 font-normal mt-1 truncate">
                     {post.author.name}
@@ -234,7 +234,7 @@ export default function PostDetailView({ post, currentUser }: Props) {
                 )}
               </div>
 
-              {/* 캡션 (별도 블록으로 분리) */}
+              {/* 캡션 */}
               {post.caption && (
                 <div className="text-sm leading-5 text-gray-900 whitespace-pre-wrap mt-2">
                   {post.caption}
@@ -281,7 +281,36 @@ export default function PostDetailView({ post, currentUser }: Props) {
                               : "text-red-500 hover:bg-gray-50 active:bg-gray-100"
                           }`}
                         >
-                          {isDeleting ? "삭제 중..." : "삭제"}
+                          {isDeleting ? (
+                            <span className="flex items-center gap-2">
+                              {/* 로딩 스피너 */}
+                              <svg
+                                className="animate-spin h-4 w-4 text-gray-400"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                ></path>
+                              </svg>
+                              {/* [변경] 상수로 대체 */}
+                              {UI_TEXT.Deleting}
+                            </span>
+                          ) : (
+                            // [변경] 상수로 대체
+                            UI_TEXT.Delete
+                          )}
                         </button>
                         {!deletingState?.success && deletingState?.message && (
                           <div className="px-4 pb-2 text-xs text-red-500 font-medium bg-red-50 break-keep animate-fade-in">
@@ -290,19 +319,22 @@ export default function PostDetailView({ post, currentUser }: Props) {
                         )}
                       </form>
                       <button className="w-full text-left px-4 py-3 text-gray-900 hover:bg-gray-50 active:bg-gray-100 border-b border-gray-100">
-                        수정
+                        {/* [변경] 상수로 대체 */}
+                        {UI_TEXT.Edit}
                       </button>
                     </>
                   ) : (
                     <button className="w-full text-left px-4 py-3 text-red-500 font-bold border-b border-gray-100 hover:bg-gray-50 active:bg-gray-100">
-                      신고
+                      {/* [변경] 상수로 대체 */}
+                      {UI_TEXT.Report}
                     </button>
                   )}
                   <button
                     onClick={() => setIsMenuOpen(false)}
                     className="w-full text-left px-4 py-3 text-gray-900 hover:bg-gray-50 active:bg-gray-100"
                   >
-                    취소
+                    {/* [변경] 상수로 대체 */}
+                    {UI_TEXT.Cancel}
                   </button>
                 </div>
               )}
@@ -312,7 +344,8 @@ export default function PostDetailView({ post, currentUser }: Props) {
           {/* 2. 댓글 영역 */}
           <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
             <div className="text-gray-400 text-sm text-center mt-10">
-              아직 댓글이 없습니다.
+              {/* [변경] 상수로 대체 */}
+              {UI_TEXT.NoComments}
             </div>
           </div>
 
@@ -384,7 +417,8 @@ export default function PostDetailView({ post, currentUser }: Props) {
                 )}
               </div>
               <div className="font-semibold text-sm text-gray-900">
-                좋아요 {optimisticState.likeCount}개
+                {/* [변경] 상수로 대체 (함수 호출) */}
+                {UI_TEXT.LikeCount(optimisticState.likeCount)}
               </div>
             </div>
 
@@ -404,11 +438,13 @@ export default function PostDetailView({ post, currentUser }: Props) {
               </svg>
               <input
                 type="text"
-                placeholder="댓글 달기..."
+                // [변경] 상수로 대체
+                placeholder={UI_TEXT.TypeCommentPlaceholder}
                 className="grow text-sm outline-none bg-transparent placeholder-gray-500"
               />
               <button className="text-blue-500 font-semibold text-sm opacity-50 cursor-default hover:opacity-100">
-                게시
+                {/* [변경] 상수로 대체 */}
+                {UI_TEXT.Post}
               </button>
             </div>
           </div>

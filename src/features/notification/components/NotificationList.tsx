@@ -5,6 +5,7 @@ import { SessionUserProps } from "@/shared/components/layout/Sidebar";
 import { useEffect, useState } from "react";
 import { getNotificationsByUserIdAction } from "@/features/notification/actions";
 import { type NotificationWithRelations } from "@/services/notification.service";
+import { UI_TEXT } from "@/shared/constants"; // ⭐️ 상수 임포트
 
 /**
  * @description 알림 데이터 배열을 받아 리스트 형태로 렌더링하는 컴포넌트
@@ -34,7 +35,6 @@ export default function NotificationList({ currentUser }: SessionUserProps) {
         if (response.success && response.data) {
           setNotifications(response.data);
         }
-        
       } catch (error) {
         console.error("알림 불러오기 실패:", error);
       } finally {
@@ -58,7 +58,8 @@ export default function NotificationList({ currentUser }: SessionUserProps) {
   if (!notifications || notifications.length === 0) {
     return (
       <div className="mt-10 text-center text-sm text-gray-400">
-        새로운 알림이 없습니다.
+        {/* [변경] 상수로 대체 */}
+        {UI_TEXT.NoNotifications}
       </div>
     );
   }
