@@ -3,6 +3,10 @@ import { cache } from "react";
 import db from "@/lib/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+import { ROUTES } from "@/shared/constants";
+import { redirect } from "next/navigation";
+import { User } from "@/lib/types";
 
 // -------------------------------------------------------------------
 // 1. 타입 추론을 위한 헬퍼 함수
@@ -143,3 +147,28 @@ const _getUserImpl = async (
 };
 
 export const getUser = cache(_getUserImpl) as GetUserFunction;
+
+
+export async function getCurrentUser(): Promise<User | null> {
+  const session = await auth();
+
+  // 1. 세션 자체가 없으면 null
+  if (!session?.user?.id) {
+    return null;
+  }
+
+  // 2. DB 조회
+  const me = await db.query.users.findFirst({
+    where: eq(users.id, session.user.id),
+    columns: {
+      password: false, // 비밀번호 제외
+    },
+  });
+
+  // 3. DB에도 없으면 null (탈퇴 등)
+  if (!me) {
+    return null;
+  }
+
+  return me;
+}

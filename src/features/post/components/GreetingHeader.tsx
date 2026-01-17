@@ -1,9 +1,9 @@
 'use client';
 
-import { SessionUser } from '@/lib/types';
+import { User } from '@/lib/types';
 import { useState, useEffect } from 'react';
 
-export default function GreetingHeader({ currentUser }: { currentUser: SessionUser }) {
+export default function GreetingHeader({ currentUser }: { currentUser: User }) {
   const [greeting, setGreeting] = useState<string>("");
 
   useEffect(() => {

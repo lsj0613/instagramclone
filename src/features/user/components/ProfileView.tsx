@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {UserProfileData} from "@/services/user.service"
-import { SessionUser } from "@/lib/types";
+import { User } from "@/lib/types";
 
 
   // 2. UserProfileData가 null이 아님을 보장하는 타입
@@ -13,7 +13,7 @@ export default function ProfileView({
   currentUser,
   user,
 }: {
-  currentUser: SessionUser;
+  currentUser: User;
   user: StrictUserProfile;
 }) {
   const isOwner = currentUser.username === user.username;

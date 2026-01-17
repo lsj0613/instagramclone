@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { PostCreateSchema } from "@/shared/utils/validation";
-import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createPostInDB, deletePostInDb } from "@/services/post.service";
 import db from "@/lib/db";
@@ -13,7 +12,8 @@ import {
   createNotification,
 } from "@/services/notification.service";
 import { ActionResponse } from "@/lib/types";
-import { ERROR_MESSAGES } from "@/shared/constants"; // ⭐️ 상수 임포트
+import { ERROR_MESSAGES, ROUTES } from "@/shared/constants"; // ⭐️ 상수 임포트
+import { getCurrentUser } from "@/services/user.service";
 
 // ------------------------------------------------------------------
 // 1. 게시물 생성 액션
@@ -22,13 +22,12 @@ export async function createPostAction(
   prevState: ActionResponse | null,
   formData: FormData
 ): Promise<ActionResponse> {
-  const session = await auth();
-  const currentUser = session?.user;
+  const currentUser = await getCurrentUser();
 
   if (!currentUser) {
     return {
       success: false,
-      message: ERROR_MESSAGES.AUTH_REQUIRED, // [수정] 대문자 키
+      message: ERROR_MESSAGES.AUTH_REQUIRED, 
     };
   }
 
@@ -57,8 +56,8 @@ export async function createPostAction(
   try {
     await createPostInDB(validation.data);
 
-    revalidatePath(`/profile/${session?.user?.username}`);
-    revalidatePath("/");
+    revalidatePath(ROUTES.PROFILE(currentUser.username));
+    revalidatePath(ROUTES.HOME);
   } catch (error) {
     console.error("Create Post Error:", error);
     return {
@@ -67,7 +66,7 @@ export async function createPostAction(
     };
   }
 
-  redirect(`/profile/${session?.user?.username}`);
+  redirect(ROUTES.PROFILE(currentUser.username));
 }
 
 // ------------------------------------------------------------------
@@ -76,10 +75,7 @@ export async function createPostAction(
 export async function togglePostLikeAction(postId: string) {
   try {
     return await db.transaction(async (tx) => {
-      const authSession = await auth();
-      if (!authSession?.user?.id) throw new Error(ERROR_MESSAGES.AUTH_REQUIRED); // [수정]
-
-      const userId = authSession.user.id;
+      const { id: userId } = await getCurrentUser();
 
       const postWithLikes = await tx.query.posts.findFirst({
         where: eq(posts.id, postId),
@@ -168,16 +164,15 @@ export async function deletePostAction(
   prevState: null | ActionResponse,
   formData: FormData
 ): Promise<ActionResponse> {
-  const session = await auth();
-  if (!session || !session.user?.id) {
-    return { success: false, message: ERROR_MESSAGES.AUTH_REQUIRED }; // [수정]
-  }
+  const currentUser = await getCurrentUser();
+  if (!currentUser)
+    return { success: false, message: ERROR_MESSAGES.AUTH_REQUIRED };
 
   try {
-    await deletePostInDb(postId, session.user.id);
+    await deletePostInDb(postId, currentUser.id);
 
     revalidatePath("/");
-    revalidatePath(`/profile/${session.user.username}`);
+    revalidatePath(`/profile/${currentUser.username}`);
   } catch (error) {
     console.error("[DeletePostAction Error]:", error);
 
@@ -197,5 +192,5 @@ export async function deletePostAction(
     };
   }
 
-  redirect(`/profile/${session.user.username}`);
+  redirect(`/profile/${currentUser.username}`);
 }

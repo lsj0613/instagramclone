@@ -1,12 +1,16 @@
 import { posts, users } from "@/db/schema";
 import { type InferSelectModel } from "drizzle-orm";
-import type { Session } from "next-auth";
+
+
 // 1. 기본 Post 타입 (DB 그대로)
 export type Post = InferSelectModel<typeof posts>;
 
 // 2. 기본 User 타입
-export type User = InferSelectModel<typeof users>;
+// 1. 먼저 전체 선택 모델 타입을 가져옵니다.
+type SelectUser = InferSelectModel<typeof users>;
 
+// 2. Omit을 사용하여 password 필드만 제외한 새로운 User 타입을 정의합니다.
+export type User = Omit<SelectUser, "password">;
 // 3. [핵심] 우리가 실제로 쓰는 "작성자 포함 + 날짜 문자열 변환된" 타입
 // (일일이 타이핑하지 않고 기존 타입을 상속받아서 수정합니다)
 export type PostInfo = Omit<Post, "createdAt"> & {
@@ -25,6 +29,3 @@ export type ActionResponse<T = null> = {
   data?: T | null; // 성공 시 반환할 데이터 (생성된 객체 등)
   fieldErrors?: Record<string, string[] | undefined>; // Zod 유효성 검사 실패 시 필드별 에러
 };
-
-
-export type SessionUser = Session["user"];

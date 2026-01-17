@@ -4,6 +4,8 @@ export const ROUTES = {
   LOGIN: "/login",
   SIGNUP: "/signup",
   CREATE_POST: "/createpost",
+  DEFAULT_PROFILEIMAGE: "/default-profile.png",
+  ONBOARDING: "/onboarding",
   PROFILE: (username: string) => `/profile/${username}`,
   POST_DETAIL: (postId: string) => `/post/${postId}`,
 } as const;

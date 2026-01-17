@@ -13,13 +13,14 @@ import {
   deletePostAction,
   togglePostLikeAction,
 } from "@/features/post/actions";
-import { PostInfo, SessionUser } from "@/lib/types";
+import { PostInfo } from "@/lib/types";
 import Link from "next/link";
 import { UI_TEXT } from "@/shared/constants"; // ⭐️ 상수 임포트 경로에 맞게 수정해주세요
+import {User} from "@/lib/types";
 
 interface Props {
   post: PostInfo;
-  currentUser?: SessionUser;
+  currentUser: User | null;
 }
 
 export default function PostDetailView({ post, currentUser }: Props) {

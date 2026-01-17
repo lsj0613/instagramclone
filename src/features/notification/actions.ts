@@ -6,7 +6,7 @@ import {
   getNotifications,
   type NotificationWithRelations,
 } from "@/services/notification.service";
-import { auth } from "@/lib/auth"; // ⭐️ auth 가져오기
+import { getCurrentUser } from "@/services/user.service";
 
 interface NotificationResponse {
   success: boolean;
@@ -22,10 +22,9 @@ export async function getNotificationsByUserIdAction(
 
   try {
     // 1. 세션에서 사용자 ID 추출 (보안의 핵심)
-    const session = await auth();
-    const userId = session?.user?.id;
+    const currentUser = await getCurrentUser();
 
-    if (!userId) {
+    if (!currentUser) {
       // 로그인하지 않은 사용자의 접근 차단
       return {
         success: false,
@@ -34,7 +33,7 @@ export async function getNotificationsByUserIdAction(
     }
 
     // 2. 서비스 호출 (추출한 userId 사용)
-    const data = await getNotifications(userId, limit);
+    const data = await getNotifications(currentUser.id, limit);
 
     return {
       success: true,

@@ -3,7 +3,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/shared/components/layout/Sidebar";
 import SessionProvider from "@/shared/components/SessionProvider"; //
+import { getCurrentUser } from "@/services/user.service";
 import { auth } from "@/lib/auth";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,6 +27,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const currentUser = await getCurrentUser();
   const session = await auth();
 
   return (
@@ -32,10 +35,10 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <SessionProvider>
+        <SessionProvider session={session}>
           <div className="flex h-screen w-full overflow-hidden bg-white">
             {/* 1. 사이드바 (fixed 포지션이므로 별도 공간 차지 X, 화면 위에 뜸) */}
-            <Sidebar currentUser={session?.user} />
+            <Sidebar currentUser={currentUser} />
             {/* 2. 메인 콘텐츠 */}
             {/* ml-20: 사이드바 너비(w-20)만큼 왼쪽 여백을 줘서 겹치지 않게 함 */}
             <main className="flex-1 ml-20 overflow-y-auto">{children}</main>

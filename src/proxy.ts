@@ -1,39 +1,24 @@
+// middleware.ts
 import { auth } from "@/lib/auth";
+import { NextResponse } from "next/server";
 
 export default auth((req) => {
-  const isLoggedIn = !!req.auth;
-  const { nextUrl } = req;
-  const { pathname } = nextUrl;
+  // ⭐️ 로그인이 필요 없는 경로 목록 정의
+  // (루트, 로그인, 회원가입은 누구나 접근 가능)
+  const publicPaths = ["/", "/login", "/signup", "forgot-password"];
 
-  // 1. 세션에서 온보딩 완료 여부 가져오기 (auth.ts의 session 콜백 설정 필요)
-  const hasFinishedOnboarding = req.auth?.user?.hasFinishedOnboarding;
+  const isPublicPath = publicPaths.includes(req.nextUrl.pathname);
 
-  // 2. 경로 분류
-  const isPublicRoute = pathname === "/" || pathname === "/login" || pathname === "/signup";
-  const isOnboardingRoute = pathname === "/onboarding";
-
-  // 3. 비로그인 유저 처리: 홈(/), 로그인, 회원가입 외의 모든 경로는 로그인으로 리다이렉트
-  if (!isLoggedIn) {
-    if (!isPublicRoute) {
-      return Response.redirect(new URL("/login", nextUrl));
-    }
-    return; // 홈페이지(/)나 로그인/회원가입은 허용
+  // 로그인 안 했고(req.auth 없음) && 비공개 경로(!isPublicPath)로 접근 시 리다이렉트
+  if (!req.auth && !isPublicPath) {
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // 4. 로그인 유저 처리
-  if (isLoggedIn) {
-    // A. 온보딩 미완료 유저: /onboarding이 아닌 곳에 있다면 강제 이동
-    if (!hasFinishedOnboarding && !isOnboardingRoute) {
-      return Response.redirect(new URL("/onboarding", nextUrl));
-    }
-
-    // B. 온보딩 완료 유저가 /onboarding이나 로그인/회원가입 페이지에 접근하면 홈으로
-    if (hasFinishedOnboarding && (isOnboardingRoute || pathname === "/login" || pathname === "/signup")) {
-      return Response.redirect(new URL("/", nextUrl));
-    }
-  }
+  // 그 외(로그인 했거나, 공개 경로인 경우) 통과
+  return NextResponse.next();
 });
 
 export const config = {
+  // api, static 파일, 이미지, 파비콘 등을 제외한 모든 경로에서 미들웨어 실행
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
