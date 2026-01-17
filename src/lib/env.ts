@@ -1,30 +1,32 @@
+// 서버용 검증 함수 (서버는 process.env가 실제로 존재하므로 동적 접근 가능)
 const checkEnv = (key: string): string => {
   const value = process.env[key];
-  if (!value) {
-    throw new Error(`❌ 필수 환경변수가 누락되었습니다: ${key}`);
-  }
+  if (!value) throw new Error(`❌ 필수 서버 환경변수 누락: ${key}`);
   return value;
 };
 
-// 검증이 필요한 서버 사이드 환경변수 목록
-export const env = {
-  // DB 관련
-  DATABASE_URL: checkEnv("DATABASE_URL"),
+// 클라이언트용 검증 함수 (값을 직접 받아야 함)
+const checkPublicEnv = (key: string, value: string | undefined): string => {
+  if (!value) throw new Error(`❌ 필수 클라이언트 환경변수 누락: ${key}`);
+  return value;
+};
 
-  // Auth 관련
+export const env = {
+  DATABASE_URL: checkEnv("DATABASE_URL"),
   AUTH_SECRET: checkEnv("AUTH_SECRET"),
   AUTH_GOOGLE_ID: checkEnv("AUTH_GOOGLE_ID"),
   AUTH_GOOGLE_SECRET: checkEnv("AUTH_GOOGLE_SECRET"),
-
-  // Cloudinary (서버용)
   CLOUDINARY_API_SECRET: checkEnv("CLOUDINARY_API_SECRET"),
 };
 
-// 클라이언트 사이드 환경변수 (NEXT_PUBLIC_)
-// 클라이언트는 번들링 시점에 값이 박히므로, 별도 객체로 관리하거나 여기서 같이 체크해도 됩니다.
 export const publicEnv = {
-  NEXT_PUBLIC_CLOUDINARY_API_KEY: checkEnv("NEXT_PUBLIC_CLOUDINARY_API_KEY"),
-  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: checkEnv(
-    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME"
+  // ⭐️ 여기서 process.env.변수명을 '직접' 써야 Next.js가 값을 채워줍니다.
+  NEXT_PUBLIC_CLOUDINARY_API_KEY: checkPublicEnv(
+    "NEXT_PUBLIC_CLOUDINARY_API_KEY",
+    process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY
+  ),
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: checkPublicEnv(
+    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME",
+    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
   ),
 };
