@@ -55,6 +55,3 @@ export async function searchUsersAction(
   }
 }
 
-export async function getUserAction(userId : string) {
-
-}

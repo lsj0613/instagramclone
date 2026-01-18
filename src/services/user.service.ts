@@ -4,14 +4,19 @@ import db from "@/lib/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { ROUTES } from "@/shared/constants";
-import { redirect } from "next/navigation";
-import { User } from "@/lib/types";
+import { ERROR_MESSAGES } from "@/shared/constants";
 
 // -------------------------------------------------------------------
-// 1. 타입 추론을 위한 헬퍼 함수
+// 1. 공통 유틸리티 타입 (DRY 원칙 적용)
 // -------------------------------------------------------------------
-const getSummaryQuery = () =>
+
+// 어떤 데이터 타입이든 'isOwner' 속성을 붙여주는 제네릭
+type WithOwnership<T> = T & { isOwner: boolean };
+
+// -------------------------------------------------------------------
+// 2. 쿼리 헬퍼 (타입 추론용)
+// -------------------------------------------------------------------
+const _summaryTypeHelper = () =>
   db.query.users.findFirst({
     columns: {
       id: true,
@@ -36,7 +41,7 @@ const getSummaryQuery = () =>
     },
   });
 
-const getProfileQuery = () =>
+const _profileTypeHelper = () =>
   db.query.users.findFirst({
     columns: {
       id: true,
@@ -59,42 +64,54 @@ const getProfileQuery = () =>
     },
   });
 
-// 💡 수정 1: | undefined 대신 | null 로 변경 (원한다면)
-// Drizzle이 반환하는 원본 타입(undefined 포함)에서 undefined를 떼고 null을 붙입니다.
-export type UserSummaryData = NonNullable<
-  Awaited<ReturnType<typeof getSummaryQuery>>
-> | null;
-export type UserProfileData = NonNullable<
-  Awaited<ReturnType<typeof getProfileQuery>>
-> | null;
+// -------------------------------------------------------------------
+// 3. DTO 타입 정의 (통일됨)
+// -------------------------------------------------------------------
+
+// Drizzle 원본 타입 추출
+type BaseSummaryData = NonNullable<Awaited<ReturnType<typeof _summaryTypeHelper>>>;
+type BaseProfileData = NonNullable<Awaited<ReturnType<typeof _profileTypeHelper>>>;
+
+// ⭐️ 최종 Export 타입 (둘 다 isOwner 포함)
+export type UserSummaryData = WithOwnership<BaseSummaryData>;
+export type UserProfileData = WithOwnership<BaseProfileData>;
 
 // -------------------------------------------------------------------
-// 2. 실제 데이터 페칭 함수
+// 4. 서비스 로직 (Unified Implementation)
 // -------------------------------------------------------------------
+
 type GetUserFunction = {
+  // 오버로딩 1: 요약 정보 (currentUserId 추가)
   (
     identifier: string,
     by: "id" | "username",
-    mode: "summary"
-  ): Promise<UserSummaryData>;
+    mode: "summary",
+    currentUserId?: string
+  ): Promise<UserSummaryData | null>;
+
+  // 오버로딩 2: 프로필 상세 (currentUserId 추가)
   (
     identifier: string,
     by: "id" | "username",
-    mode: "profile"
-  ): Promise<UserProfileData>;
+    mode: "profile",
+    currentUserId?: string
+  ): Promise<UserProfileData | null>;
 };
 
 const _getUserImpl = async (
   identifier: string,
   by: "id" | "username",
-  mode: "summary" | "profile"
-): Promise<UserSummaryData | UserProfileData> => {
+  mode: "summary" | "profile",
+  currentUserId?: string
+): Promise<UserSummaryData | UserProfileData | null> => {
   const condition =
     by === "id" ? eq(users.id, identifier) : eq(users.username, identifier);
 
-  // 💡 수정 2: 결과값 뒤에 '?? null'을 붙여 undefined를 null로 변환
+  let result;
+
+  // 1. 모드에 따라 쿼리 실행 (분기)
   if (mode === "summary") {
-    const result = await db.query.users.findFirst({
+    result = await db.query.users.findFirst({
       where: condition,
       columns: {
         id: true,
@@ -118,9 +135,8 @@ const _getUserImpl = async (
         },
       },
     });
-    return result ?? null; // 👈 여기가 핵심
   } else {
-    const result = await db.query.users.findFirst({
+    result = await db.query.users.findFirst({
       where: condition,
       columns: {
         id: true,
@@ -142,33 +158,60 @@ const _getUserImpl = async (
         },
       },
     });
-    return result ?? null; // 👈 여기가 핵심
   }
+
+  // 2. 공통 처리: 데이터 없으면 null
+  if (!result) return null;
+
+  // 3. 공통 처리: isOwner 계산 및 주입
+  const isOwner = currentUserId ? result.id === currentUserId : false;
+
+  return {
+    ...result,
+    isOwner,
+  };
 };
 
 export const getUser = cache(_getUserImpl) as GetUserFunction;
 
 
-export async function getCurrentUser(): Promise<User | null> {
+// -------------------------------------------------------------------
+//  내 정보(Current User)용 타입 정의
+// -------------------------------------------------------------------
+
+// 1. 타입 추론 헬퍼 (비밀번호 제외 쿼리)
+const _currentUserTypeHelper = () => 
+  db.query.users.findFirst({
+    columns: {
+      password: false, // ⭐️ 비밀번호 제외됨을 명시
+    },
+  });
+
+// 2. DTO 타입 정의 (순수 객체)
+// 이제 이 타입은 'password' 속성 자체가 아예 없습니다.
+export type CurrentUserData = NonNullable<
+  Awaited<ReturnType<typeof _currentUserTypeHelper>>
+>;
+
+// -------------------------------------------------------------------
+//  getCurrentUser 함수
+// -------------------------------------------------------------------
+
+export async function getCurrentUser(): Promise<CurrentUserData | null> {
   const session = await auth();
 
-  // 1. 세션 자체가 없으면 null
+  // 1. 세션이 없으면 null
   if (!session?.user?.id) {
     return null;
   }
 
-  // 2. DB 조회
+  // 2. DB 조회 (비밀번호 제외)
   const me = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),
     columns: {
-      password: false, // 비밀번호 제외
+      password: false,
     },
   });
 
-  // 3. DB에도 없으면 null (탈퇴 등)
-  if (!me) {
-    return null;
-  }
-
-  return me;
+  return me ?? null;
 }

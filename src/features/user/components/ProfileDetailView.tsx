@@ -1,23 +1,10 @@
-'use client'
+"use client";
 
 import Image from "next/image";
 import Link from "next/link";
-import {UserProfileData} from "@/services/user.service"
-import { User } from "@/lib/types";
+import { UserProfileData } from "@/services/user.service";
 
-
-  // 2. UserProfileData가 null이 아님을 보장하는 타입
-export type StrictUserProfile = NonNullable<UserProfileData>;
-
-export default function ProfileView({
-  currentUser,
-  user,
-}: {
-  currentUser: User;
-  user: StrictUserProfile;
-}) {
-  const isOwner = currentUser.username === user.username;
-
+export default function ProfileDetailView({ user }: { user: UserProfileData }) {
   return (
     <div className="max-w-4xl mx-auto pt-8 px-4">
       {/* --- 프로필 헤더 --- */}
@@ -25,7 +12,7 @@ export default function ProfileView({
         {/* 프로필 이미지 */}
         <div className="relative w-32 h-32 md:w-40 md:h-40 shrink-0">
           <Image
-            src={user.profileImage || "/default-profile.png"} // 기본 이미지 처리
+            src={user.profileImage || "/default-profile.png"}
             alt={user.username}
             fill
             className="rounded-full object-cover border border-gray-200"
@@ -42,8 +29,7 @@ export default function ProfileView({
               {user.username}
             </h1>
 
-            {/* 본인이면 '프로필 편집', 남이면 '팔로우' 버튼 표시 (여기선 편집만 구현) */}
-            {isOwner ? (
+            {user.isOwner ? (
               <button className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold transition text-black">
                 프로필 편집
               </button>
@@ -54,7 +40,7 @@ export default function ProfileView({
             )}
           </div>
 
-          {/* 2열: 통계 (게시물/팔로워/팔로잉) */}
+          {/* 2열: 통계 */}
           <div className="flex justify-center md:justify-start gap-8 text-base">
             <div>
               게시물 <span className="font-semibold">{user.postCount}</span>
@@ -68,7 +54,7 @@ export default function ProfileView({
             </div>
           </div>
 
-          {/* 3열: 이름 및 소개 (Bio) */}
+          {/* 3열: 이름 및 소개 */}
           <div className="text-sm text-center md:text-left">
             <div className="font-semibold">{user.name}</div>
             <p className="whitespace-pre-wrap text-gray-700 mt-1">
@@ -81,24 +67,21 @@ export default function ProfileView({
       {/* --- 게시물 그리드 --- */}
       <section>
         {user.postCount === 0 ? (
-          // 게시물이 없을 때
           <div className="flex flex-col items-center justify-center py-20 text-gray-500">
             <div className="w-16 h-16 border-2 border-gray-300 rounded-full flex items-center justify-center mb-4">
               <span className="text-2xl">📷</span>
             </div>
 
-            {/* 권한(isOwner)에 따른 타이틀 및 설명 분기 */}
             <h2 className="text-xl font-bold text-black mb-2">
-              {isOwner ? "사진 공유" : "게시물 없음"}
+              {user.isOwner ? "사진 공유" : "게시물 없음"}
             </h2>
             <p className="text-sm">
-              {isOwner
+              {user.isOwner
                 ? "사진을 공유하면 회원님의 프로필에 표시됩니다."
                 : "아직 게시물이 없습니다."}
             </p>
 
-            {/* 본인일 경우에만 작성 링크 노출 */}
-            {isOwner && (
+            {user.isOwner && (
               <Link
                 href="/createpost"
                 className="mt-4 text-blue-500 font-semibold hover:underline text-sm"
@@ -108,7 +91,6 @@ export default function ProfileView({
             )}
           </div>
         ) : (
-          // 게시물이 있을 때 (3열 그리드)
           <div className="grid grid-cols-3 gap-1 md:gap-4">
             {user.posts.map((post) => (
               <Link
@@ -116,7 +98,6 @@ export default function ProfileView({
                 href={`/post/${post.id}`}
                 className="relative aspect-square group cursor-pointer block bg-gray-100"
               >
-                {/* 1. 기본 썸네일 이미지 */}
                 <Image
                   src={post.images[0].url}
                   alt="게시물 썸네일"
@@ -125,9 +106,8 @@ export default function ProfileView({
                   sizes="(max-width: 768px) 33vw, 300px"
                 />
 
-                {/* 2. 호버 시 나타나는 오버레이 (CSS로 제어) */}
+                {/* 호버 오버레이 */}
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center gap-4 md:gap-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  {/* 좋아요 수 */}
                   <div className="flex items-center gap-1.5 font-bold">
                     <svg
                       fill="currentColor"
@@ -138,8 +118,6 @@ export default function ProfileView({
                     </svg>
                     <span>{post.likeCount}</span>
                   </div>
-
-                  {/* 댓글 수 */}
                   <div className="flex items-center gap-1.5 font-bold">
                     <svg
                       fill="currentColor"

@@ -1,9 +1,9 @@
 'use client';
 
-import { User } from '@/lib/types';
+import { CurrentUserData } from '@/services/user.service';
 import { useState, useEffect } from 'react';
 
-export default function GreetingHeader({ currentUser }: { currentUser: User }) {
+export default function GreetingHeader({ currentUser }: { currentUser: CurrentUserData }) {
   const [greeting, setGreeting] = useState<string>("");
 
   useEffect(() => {
@@ -19,7 +19,9 @@ export default function GreetingHeader({ currentUser }: { currentUser: User }) {
 
   return (
     <div className="mb-8">
-      <h1 className="text-2xl font-bold mb-2">안녕하세요, {currentUser.name || currentUser.username}님! 👋</h1>
+      <h1 className="text-2xl font-bold mb-2">
+        안녕하세요, {currentUser.name || currentUser.username}님! 👋
+      </h1>
       {/* 클라이언트에서 확정되기 전까지 레이아웃 시프트 방지를 위한 최소 높이 유지 */}
       <p className="text-gray-500 min-h-6">{greeting}</p>
     </div>

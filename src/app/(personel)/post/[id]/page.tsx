@@ -1,26 +1,22 @@
-import { notFound, redirect } from "next/navigation";
-import PostDetailView from "@/features/post/components/PostDetailView"; // 클라이언트 컴포넌트 import
-import { getPostInfo } from "@/services/post.service";
-import { getCurrentUser } from "@/services/user.service";
-import { ROUTES } from "@/shared/constants";
+import { Suspense } from "react";
+import PostDetailContainer from "@/features/post/components/PostDetailContainer";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
-// 이 컴포넌트는 서버에서 데이터를 가져오는 역할만 수행합니다.
-export default async function PostWrapper({ params }: Props) {
+export default async function PostPage({ params }: Props) {
   const { id } = await params;
-  const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    redirect(ROUTES.LOGIN);
-  }
 
-  const postResponse = await getPostInfo(id, currentUser.id);
-  if (!postResponse) {
-    notFound();
-  }
-
-  // 데이터를 클라이언트 컴포넌트에 props로 전달합니다.
-  return <PostDetailView post={postResponse} currentUser={currentUser} />;
+  return (
+    // ⭐️ 레이아웃(배경색, 중앙 정렬)은 페이지가 담당
+    <div className="flex justify-center items-center min-h-[calc(100vh-80px)] py-4 sm:py-8 bg-gray-50">
+      {/* ⭐️ 데이터 로딩 중 보여줄 UI (스켈레톤이나 로딩 스피너) */}
+      <Suspense
+        fallback={<div className="text-gray-500">게시물을 불러오는 중...</div>}
+      >
+        <PostDetailContainer postId={id} />
+      </Suspense>
+    </div>
+  );
 }
