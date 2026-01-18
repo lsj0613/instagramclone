@@ -1,32 +1,45 @@
-// 서버용 검증 함수 (서버는 process.env가 실제로 존재하므로 동적 접근 가능)
-const checkEnv = (key: string): string => {
-  const value = process.env[key];
-  if (!value) throw new Error(`❌ 필수 서버 환경변수 누락: ${key}`);
-  return value;
-};
+import { zodResolver } from "@hookform/resolvers/zod"; // 이전 질문과 연관
+import { z } from "zod";
 
-// 클라이언트용 검증 함수 (값을 직접 받아야 함)
-const checkPublicEnv = (key: string, value: string | undefined): string => {
-  if (!value) throw new Error(`❌ 필수 클라이언트 환경변수 누락: ${key}`);
-  return value;
-};
+// 1. 스키마 정의 (런타임 검증 및 타입 추론을 동시에 해결)
+const envSchema = z.object({
+  DATABASE_URL: z.string().url(),
+  AUTH_SECRET: z.string().min(1),
+  AUTH_GOOGLE_ID: z.string().min(1),
+  AUTH_GOOGLE_SECRET: z.string().min(1),
+  CLOUDINARY_API_SECRET: z.string().min(1),
+  // 클라이언트 환경변수도 한꺼번에 정의 가능
+  NEXT_PUBLIC_CLOUDINARY_API_KEY: z.string().min(1),
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().min(1),
+});
 
-export const env = {
-  DATABASE_URL: checkEnv("DATABASE_URL"),
-  AUTH_SECRET: checkEnv("AUTH_SECRET"),
-  AUTH_GOOGLE_ID: checkEnv("AUTH_GOOGLE_ID"),
-  AUTH_GOOGLE_SECRET: checkEnv("AUTH_GOOGLE_SECRET"),
-  CLOUDINARY_API_SECRET: checkEnv("CLOUDINARY_API_SECRET"),
-};
+// 2. 검증 수행
+const _env = envSchema.safeParse({
+  DATABASE_URL: process.env.DATABASE_URL,
+  AUTH_SECRET: process.env.AUTH_SECRET,
+  AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
+  AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  NEXT_PUBLIC_CLOUDINARY_API_KEY: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:
+    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+});
 
-export const publicEnv = {
-  // ⭐️ 여기서 process.env.변수명을 '직접' 써야 Next.js가 값을 채워줍니다.
-  NEXT_PUBLIC_CLOUDINARY_API_KEY: checkPublicEnv(
-    "NEXT_PUBLIC_CLOUDINARY_API_KEY",
-    process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY
-  ),
-  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: checkPublicEnv(
-    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME",
-    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
-  ),
-};
+if (!_env.success) {
+  // 에러의 상세 내용을 구조화하여 출력
+  const errorDetails = _env.error.flatten().fieldErrors;
+  console.error(
+    "❌ 환경변수 검증 실패 상세:",
+    JSON.stringify(errorDetails, null, 2)
+  );
+
+  // 어떤 환경(서버/클라이언트)에서 실행 중인지 확인
+  console.log(
+    "실행 환경:",
+    typeof window === "undefined" ? "서버" : "클라이언트"
+  );
+
+  throw new Error("환경변수 설정 오류");
+}
+
+export const env = _env.data;

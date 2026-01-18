@@ -6,8 +6,8 @@ import { env } from "@/lib/env";
 
 // Cloudinary 설정 (환경변수 확인 필수)
 cloudinary.config({
-  cloud_name: env.CLOUDINARY_CLOUD_NAME,
-  api_key: env.CLOUDINARY_API_KEY,
+  cloud_name: env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  api_key: env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
   api_secret: env.CLOUDINARY_API_SECRET,
 });
 

@@ -26,5 +26,5 @@ export default async function PostDetailContainer({ postId }: Props) {
   }
 
   // 4. 뷰 컴포넌트에 데이터 주입 (Presenter 패턴)
-  return <PostDetailView post={post} />;
+  return <PostDetailView key={post.id} post={post} />;
 }

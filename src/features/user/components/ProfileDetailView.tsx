@@ -99,7 +99,7 @@ export default function ProfileDetailView({ user }: { user: UserProfileData }) {
                 className="relative aspect-square group cursor-pointer block bg-gray-100"
               >
                 <Image
-                  src={post.images[0].url}
+                  src={post.images[0]?.url ?? "/no-postImage.png"}
                   alt="게시물 썸네일"
                   fill
                   className="object-cover transition-opacity"

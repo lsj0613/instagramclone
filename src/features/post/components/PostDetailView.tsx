@@ -13,10 +13,9 @@ import {
   deletePostAction,
   togglePostLikeAction,
 } from "@/features/post/actions";
-import { PostDetailData } from "@/services/post.service"; // ⭐️ 타입 경로 확인 필요 (PostInfo 대신 서비스 타입 사용 권장)
+import { PostDetailData } from "@/services/post.service";
 import Link from "next/link";
 import { UI_TEXT } from "@/shared/constants";
-import { CurrentUserData } from "@/services/user.service";
 
 export default function PostDetailView({ post }: { post: PostDetailData }) {
   const [isPending, startTransition] = useTransition();
@@ -56,7 +55,7 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
   const isLiked = optimisticState.isLiked; // currentUser check는 위에서 했거나 렌더링 시 처리
 
   const handleLikeClick = () => {
-    if (!isAuthor) return;
+    if (isAuthor) return;
     const nextState = !optimisticState.isLiked;
     startTransition(async () => {
       try {
@@ -138,14 +137,14 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
             <div className="relative w-full h-full">
               <Image
                 src={
-                  post.images.find(
-                    (image) => image.order === currentImageIndex
-                  )!.url
+                  post.images.find((image) => image.order === currentImageIndex)
+                    ?.url || ""
                 }
                 alt="Post content"
                 fill
                 className="object-contain"
                 priority
+                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 60vw, 600px"
               />
             </div>
           )}
