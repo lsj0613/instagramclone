@@ -1,23 +1,29 @@
 import "server-only";
 import { cache } from "react";
 import db from "@/lib/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { ERROR_MESSAGES } from "@/shared/constants";
+import { users, posts, follows, postLikes, comments } from "@/db/schema"; // ⭐️ 필요한 테이블 모두 임포트
+import { eq, sql, SQL } from "drizzle-orm";
 
 // -------------------------------------------------------------------
-// 1. 공통 유틸리티 타입 (DRY 원칙 적용)
+// 1. 공통 유틸리티 타입
 // -------------------------------------------------------------------
 
-// 어떤 데이터 타입이든 'isOwner' 속성을 붙여주는 제네릭
 type WithOwnership<T> = T & { isOwner: boolean };
 
 // -------------------------------------------------------------------
-// 2. 쿼리 헬퍼 (타입 추론용)
+// 2. 쿼리 헬퍼
 // -------------------------------------------------------------------
-const _summaryTypeHelper = () =>
+
+
+
+// -------------------------------------------------------------------
+// 2. 쿼리 헬퍼 (수정됨)
+// -------------------------------------------------------------------
+
+const _summaryQueryHelper = (condition: SQL) =>
   db.query.users.findFirst({
+    where: condition,
     columns: {
       id: true,
       username: true,
@@ -27,61 +33,109 @@ const _summaryTypeHelper = () =>
     },
     with: {
       posts: {
-        columns: { id: true, likeCount: true, commentCount: true },
+        limit: 3,
+        orderBy: (posts, { desc }) => [desc(posts.createdAt)],
+        extras: {
+          // ⭐️ [수정] post_likes, comments 테이블의 컬럼명은 직접 문자열로 작성 (snake_case)
+          likeCount: sql<number>`(
+            SELECT count(*)::int 
+            FROM ${postLikes} 
+            WHERE post_likes.post_id = ${posts.id}
+          )`.as("like_count"),
+          
+          commentCount: sql<number>`(
+            SELECT count(*)::int 
+            FROM ${comments} 
+            WHERE comments.post_id = ${posts.id}
+          )`.as("comment_count"),
+        },
         with: {
           images: {
             orderBy: (imgs, { asc }) => [asc(imgs.order)],
             limit: 1,
-            columns: { url: true },
           },
         },
-        orderBy: (posts, { desc }) => [desc(posts.createdAt)],
-        limit: 3,
       },
     },
   });
 
-const _profileTypeHelper = () =>
+const _profileQueryHelper = (condition: SQL) =>
   db.query.users.findFirst({
+    where: condition,
     columns: {
       id: true,
       username: true,
       name: true,
       profileImage: true,
       bio: true,
-      postCount: true,
-      followerCount: true,
-      followingCount: true,
+    },
+    extras: {
+      // ⭐️ [수정] posts, follows 테이블의 컬럼명은 직접 문자열로 작성
+      // ${posts.authorId} -> posts.author_id (X) 테이블명 명시 필요
+      // 쿼리 안정성을 위해 테이블명(posts, follows)도 명시하는 것이 좋습니다.
+      
+      postCount: sql<number>`(
+        SELECT count(*)::int 
+        FROM ${posts} 
+        WHERE posts.author_id = ${users.id}
+      )`.as("post_count"),
+      
+      followerCount: sql<number>`(
+        SELECT count(*)::int 
+        FROM ${follows} 
+        WHERE follows.following_id = ${users.id} 
+        AND follows.status = 'ACCEPTED'
+      )`.as("follower_count"),
+      
+      followingCount: sql<number>`(
+        SELECT count(*)::int 
+        FROM ${follows} 
+        WHERE follows.follower_id = ${users.id} 
+        AND follows.status = 'ACCEPTED'
+      )`.as("following_count"),
     },
     with: {
       posts: {
-        columns: { id: true, likeCount: true, commentCount: true },
         orderBy: (posts, { desc }) => [desc(posts.createdAt)],
+        extras: {
+          // ⭐️ [수정] 여기도 마찬가지로 수정
+          likeCount: sql<number>`(
+            SELECT count(*)::int 
+            FROM ${postLikes} 
+            WHERE post_likes.post_id = ${posts.id}
+          )`.as("like_count"),
+          
+          commentCount: sql<number>`(
+            SELECT count(*)::int 
+            FROM ${comments} 
+            WHERE comments.post_id = ${posts.id}
+          )`.as("comment_count"),
+        },
         with: {
-          images: { limit: 1, orderBy: (imgs, { asc }) => [asc(imgs.order)] },
+          images: {
+            orderBy: (imgs, { asc }) => [asc(imgs.order)],
+            limit: 1,
+          },
         },
       },
     },
   });
 
 // -------------------------------------------------------------------
-// 3. DTO 타입 정의 (통일됨)
+// 3. DTO 타입 정의
 // -------------------------------------------------------------------
 
-// Drizzle 원본 타입 추출
-type BaseSummaryData = NonNullable<Awaited<ReturnType<typeof _summaryTypeHelper>>>;
-type BaseProfileData = NonNullable<Awaited<ReturnType<typeof _profileTypeHelper>>>;
+type BaseSummaryData = NonNullable<Awaited<ReturnType<typeof _summaryQueryHelper>>>;
+type BaseProfileData = NonNullable<Awaited<ReturnType<typeof _profileQueryHelper>>>;
 
-// ⭐️ 최종 Export 타입 (둘 다 isOwner 포함)
 export type UserSummaryData = WithOwnership<BaseSummaryData>;
 export type UserProfileData = WithOwnership<BaseProfileData>;
 
 // -------------------------------------------------------------------
-// 4. 서비스 로직 (Unified Implementation)
+// 4. 서비스 로직
 // -------------------------------------------------------------------
 
 type GetUserFunction = {
-  // 오버로딩 1: 요약 정보 (currentUserId 추가)
   (
     identifier: string,
     by: "id" | "username",
@@ -89,7 +143,6 @@ type GetUserFunction = {
     currentUserId?: string
   ): Promise<UserSummaryData | null>;
 
-  // 오버로딩 2: 프로필 상세 (currentUserId 추가)
   (
     identifier: string,
     by: "id" | "username",
@@ -104,66 +157,20 @@ const _getUserImpl = async (
   mode: "summary" | "profile",
   currentUserId?: string
 ): Promise<UserSummaryData | UserProfileData | null> => {
+  // eq() 함수의 반환값은 'SQL' 타입입니다.
   const condition =
     by === "id" ? eq(users.id, identifier) : eq(users.username, identifier);
 
   let result;
 
-  // 1. 모드에 따라 쿼리 실행 (분기)
   if (mode === "summary") {
-    result = await db.query.users.findFirst({
-      where: condition,
-      columns: {
-        id: true,
-        username: true,
-        name: true,
-        profileImage: true,
-        bio: true,
-      },
-      with: {
-        posts: {
-          columns: { id: true, likeCount: true, commentCount: true },
-          with: {
-            images: {
-              orderBy: (imgs, { asc }) => [asc(imgs.order)],
-              limit: 1,
-              columns: { url: true },
-            },
-          },
-          orderBy: (posts, { desc }) => [desc(posts.createdAt)],
-          limit: 3,
-        },
-      },
-    });
+    result = await _summaryQueryHelper(condition);
   } else {
-    result = await db.query.users.findFirst({
-      where: condition,
-      columns: {
-        id: true,
-        username: true,
-        name: true,
-        profileImage: true,
-        bio: true,
-        postCount: true,
-        followerCount: true,
-        followingCount: true,
-      },
-      with: {
-        posts: {
-          columns: { id: true, likeCount: true, commentCount: true },
-          orderBy: (posts, { desc }) => [desc(posts.createdAt)],
-          with: {
-            images: { limit: 1, orderBy: (imgs, { asc }) => [asc(imgs.order)] },
-          },
-        },
-      },
-    });
+    result = await _profileQueryHelper(condition);
   }
 
-  // 2. 공통 처리: 데이터 없으면 null
   if (!result) return null;
 
-  // 3. 공통 처리: isOwner 계산 및 주입
   const isOwner = currentUserId ? result.id === currentUserId : false;
 
   return {
@@ -173,6 +180,8 @@ const _getUserImpl = async (
 };
 
 export const getUser = cache(_getUserImpl) as GetUserFunction;
+
+
 
 
 // -------------------------------------------------------------------

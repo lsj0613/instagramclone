@@ -3,7 +3,7 @@
 import Notification from "./Notification";
 import { SessionUserProps } from "@/shared/components/layout/Sidebar";
 import { useEffect, useState } from "react";
-import { getNotificationsByUserIdAction } from "@/features/notification/actions";
+import { getNotificationsAction } from "@/features/notification/actions";
 import { type NotificationWithRelations } from "@/services/notification.service";
 import { UI_TEXT } from "@/shared/constants"; // ⭐️ 상수 임포트
 
@@ -30,7 +30,7 @@ export default function NotificationList({ currentUser }: SessionUserProps) {
       setIsLoading(true);
       try {
         // 서버 액션 호출
-        const response = await getNotificationsByUserIdAction();
+        const response = await getNotificationsAction();
 
         if (response.success && response.data) {
           setNotifications(response.data);

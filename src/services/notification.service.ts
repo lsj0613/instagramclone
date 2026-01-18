@@ -40,7 +40,13 @@ export type NotificationWithRelations = Awaited<
 interface manageNotificationParams {
   actorId: string; // 알림을 발생시킨 사용자 ID (UUID)
   recipientId: string; // 알림을 받을 사용자 ID (UUID)
-  type: "LIKE" | "COMMENT" | "FOLLOW" | "REPLY" | "COMMENT_LIKE";
+  type:
+    | "LIKE"
+    | "COMMENT"
+    | "FOLLOW"
+    | "REPLY"
+    | "COMMENT_LIKE"
+    | "FOLLOW_REQUEST";
   postId?: string; // 관련 게시물 ID (선택 사항)
   commentId?: string; // 관련 댓글 ID (선택 사항)
 }

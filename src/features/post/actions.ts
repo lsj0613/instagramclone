@@ -5,7 +5,7 @@ import { PostCreateSchema } from "@/shared/utils/validation";
 import { redirect } from "next/navigation";
 import { createPostInDB, deletePostInDb } from "@/services/post.service";
 import db from "@/lib/db";
-import { likes, posts } from "@/db/schema";
+import { posts } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import {
   deleteNotification,
@@ -73,87 +73,7 @@ export async function createPostAction(
 // 2. 좋아요 토글 액션
 // ------------------------------------------------------------------
 export async function togglePostLikeAction(postId: string) {
-  try {
-    return await db.transaction(async (tx) => {
-      const { id: userId } = await getCurrentUser();
-
-      const postWithLikes = await tx.query.posts.findFirst({
-        where: eq(posts.id, postId),
-        columns: { authorId: true },
-        with: {
-          likes: {
-            where: eq(likes.userId, userId),
-            columns: { userId: true },
-          },
-        },
-      });
-
-      if (!postWithLikes) throw new Error(ERROR_MESSAGES.POST_NOT_FOUND); // [수정]
-
-      if (postWithLikes.authorId === userId) {
-        throw new Error(ERROR_MESSAGES.SELF_LIKE_NOT_ALLOWED); // [수정]
-      }
-
-      const isLiked = postWithLikes.likes.length > 0;
-
-      if (isLiked) {
-        const deletedRows = await tx
-          .delete(likes)
-          .where(and(eq(likes.userId, userId), eq(likes.postId, postId)))
-          .returning();
-
-        if (deletedRows.length > 0) {
-          await tx
-            .update(posts)
-            .set({ likeCount: sql`${posts.likeCount} - 1` })
-            .where(eq(posts.id, postId));
-
-          await deleteNotification(
-            {
-              actorId: userId,
-              recipientId: postWithLikes.authorId,
-              type: "LIKE",
-              postId: postId,
-            },
-            tx
-          );
-        }
-      } else {
-        const insertedRows = await tx
-          .insert(likes)
-          .values({ userId: userId, postId: postId })
-          .onConflictDoNothing()
-          .returning();
-
-        if (insertedRows.length > 0) {
-          await tx
-            .update(posts)
-            .set({ likeCount: sql`${posts.likeCount} + 1` })
-            .where(eq(posts.id, postId));
-
-          if (postWithLikes.authorId !== userId) {
-            await createNotification(
-              {
-                actorId: userId,
-                recipientId: postWithLikes.authorId,
-                type: "LIKE",
-                postId: postId,
-              },
-              tx
-            );
-          }
-        }
-      }
-
-      revalidatePath(`/post/${postId}`);
-      return { success: true };
-    });
-  } catch (error) {
-    console.error("Like toggle transaction error:", error);
-    throw new Error(
-      error instanceof Error ? error.message : ERROR_MESSAGES.SERVER_ERROR // [수정]
-    );
-  }
+  
 }
 
 // ------------------------------------------------------------------

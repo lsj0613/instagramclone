@@ -1,10 +1,11 @@
 import "server-only";
 
 import db from "@/lib/db";
-import { likes, posts, postImages, users } from "@/db/schema";
+import { posts, postImages, postLikes, comments } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { cache } from "react";
 import { CreatePostParams, UuidSchema } from "@/shared/utils/validation";
+import { ERROR_MESSAGES } from "@/shared/constants";
 
 // -------------------------------------------------------------------
 // 1. 타입 헬퍼
@@ -12,6 +13,20 @@ import { CreatePostParams, UuidSchema } from "@/shared/utils/validation";
 const _getPostQuery = (postId: string, userId: string) =>
   db.query.posts.findFirst({
     where: eq(posts.id, postId),
+    // 게시물 자체의 좋아요/댓글 개수 (Live Count)
+    extras: {
+      likeCount: sql<number>`(
+        SELECT count(*)::int 
+        FROM ${postLikes} 
+        WHERE post_likes.post_id = ${posts.id}
+      )`.as("like_count"),
+
+      commentCount: sql<number>`(
+        SELECT count(*)::int 
+        FROM ${comments} 
+        WHERE comments.post_id = ${posts.id}
+      )`.as("comment_count"),
+    },
     with: {
       author: {
         columns: {
@@ -23,21 +38,35 @@ const _getPostQuery = (postId: string, userId: string) =>
       },
       images: {
         orderBy: (postImages, { asc }) => [asc(postImages.order)],
+        // 필요 시 columns 명시
       },
       likes: {
-        where: eq(likes.userId, userId || ""),
+        where: eq(postLikes.userId, userId || ""),
         columns: { userId: true },
+        limit: 1,
+      },
+      // ⭐️ [추가] 댓글 목록 가져오기
+      comments: {
+        orderBy: (comments, { desc }) => [desc(comments.createdAt)], // 최신순 정렬
+        with: {
+          author: {
+            columns: {
+              id: true,
+              username: true,
+              profileImage: true,
+            },
+          },
+        },
       },
     },
-    // authorId는 posts 테이블의 컬럼이므로 자동으로 포함됩니다.
   });
 
+// Drizzle이 자동으로 comments 타입을 추론하여 RawPostData에 포함시킵니다.
 type RawPostData = NonNullable<Awaited<ReturnType<typeof _getPostQuery>>>;
 
-// ⭐️ [수정] isOwner 필드 추가
 export type PostDetailData = Omit<RawPostData, "likes" | "createdAt"> & {
   isLiked: boolean;
-  isOwner: boolean; // 👈 추가됨
+  isOwner: boolean;
   createdAt: string;
 };
 
@@ -62,17 +91,16 @@ const _getPostInfo = async (
       return null;
     }
 
-    const { likes: likedRecords, ...postData } = post;
+    const { likes: myLikeRecord, ...postData } = post;
 
-    // ⭐️ [추가] 소유권 계산
-    // post.authorId는 Drizzle 쿼리에서 자동으로 가져온 상태입니다.
     const isOwner = currentUserId ? post.authorId === currentUserId : false;
 
     return {
       ...postData,
-      isLiked: likedRecords.length > 0,
-      isOwner, // 👈 계산된 값 주입
+      isLiked: myLikeRecord.length > 0,
+      isOwner,
       createdAt: post.createdAt.toISOString(),
+      // comments는 이미 postData 안에 포함되어 있으므로 별도 처리 불필요
     };
   } catch (error) {
     console.error(`❌ DB Error fetching post ${postId}:`, error);
@@ -89,13 +117,14 @@ export async function createPostInDB({
   locationName,
   latitude,
   longitude,
-  images,
+  images, // 이제 string[]이 아니라 { url, width, height ... }[] 타입입니다.
 }: CreatePostParams) {
   return await db.transaction(async (tx) => {
+    // 1. 게시물(Post) 저장
     const [newPost] = await tx
       .insert(posts)
       .values({
-        authorId,
+        authorId: authorId!, // 서버 액션에서 반드시 주입해주므로 ! 사용 (타입 단언)
         caption,
         locationName,
         latitude,
@@ -109,22 +138,20 @@ export async function createPostInDB({
       );
     }
 
+    // 2. 이미지(PostImages) 저장 (메타데이터 매핑)
     if (images.length > 0) {
-      const imageRecords = images.map((url, index) => ({
+      const imageRecords = images.map((img, index) => ({
         postId: newPost.id,
-        url: url,
+        url: img.url,
+        // ⭐️ 스키마에 추가된 컬럼 매핑
+        width: img.width,
+        height: img.height,
+        altText: img.altText, // 없으면 undefined로 들어감 (DB에서 null 허용 시)
         order: index,
       }));
 
       await tx.insert(postImages).values(imageRecords);
     }
-
-    await tx
-      .update(users)
-      .set({
-        postCount: sql`${users.postCount} + 1`,
-      })
-      .where(eq(users.id, authorId));
 
     return newPost;
   });
@@ -138,15 +165,8 @@ export async function deletePostInDb(postId: string, userId: string) {
       .returning({ id: posts.id });
 
     if (deletedPosts.length === 0) {
-      throw new Error("POST_NOT_FOUND_OR_UNAUTHORIZED");
+      throw new Error(ERROR_MESSAGES.POST_NOT_FOUND);
     }
-
-    await tx
-      .update(users)
-      .set({
-        postCount: sql`${users.postCount} - 1`,
-      })
-      .where(eq(users.id, userId));
 
     return deletedPosts[0];
   });

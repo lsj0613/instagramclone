@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import PostDetailContainer from "@/features/post/components/PostDetailContainer";
+import { notFound } from "next/navigation";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -7,7 +8,7 @@ interface Props {
 
 export default async function PostPage({ params }: Props) {
   const { id } = await params;
-
+  if (!id) notFound();
   return (
     // ⭐️ 레이아웃(배경색, 중앙 정렬)은 페이지가 담당
     <div className="flex justify-center items-center min-h-[calc(100vh-80px)] py-4 sm:py-8 bg-gray-50">

@@ -1,45 +1,65 @@
-import { zodResolver } from "@hookform/resolvers/zod"; // 이전 질문과 연관
 import { z } from "zod";
 
-// 1. 스키마 정의 (런타임 검증 및 타입 추론을 동시에 해결)
-const envSchema = z.object({
+/**
+ * 1. 클라이언트용 스키마 (브라우저 노출 가능)
+ */
+const clientSchema = z.object({
+  NEXT_PUBLIC_CLOUDINARY_API_KEY: z.string().min(1),
+  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().min(1),
+});
+
+/**
+ * 2. 서버용 스키마 (보안 중요)
+ */
+const serverSchema = z.object({
   DATABASE_URL: z.string().url(),
   AUTH_SECRET: z.string().min(1),
   AUTH_GOOGLE_ID: z.string().min(1),
   AUTH_GOOGLE_SECRET: z.string().min(1),
   CLOUDINARY_API_SECRET: z.string().min(1),
-  // 클라이언트 환경변수도 한꺼번에 정의 가능
-  NEXT_PUBLIC_CLOUDINARY_API_KEY: z.string().min(1),
-  NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().min(1),
 });
 
-// 2. 검증 수행
-const _env = envSchema.safeParse({
-  DATABASE_URL: process.env.DATABASE_URL,
-  AUTH_SECRET: process.env.AUTH_SECRET,
-  AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
-  AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+// 타입 추론을 위한 인터페이스 정의
+type ClientEnv = z.infer<typeof clientSchema>;
+type ServerEnv = z.infer<typeof serverSchema>;
+
+/**
+ * 3. 클라이언트 환경변수 검증 (항상 실행)
+ * - 클라이언트는 process.env.NEXT_PUBLIC_... 를 직접 명시해야 값이 채워집니다.
+ */
+const _clientEnv = clientSchema.safeParse({
   NEXT_PUBLIC_CLOUDINARY_API_KEY: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME:
     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
 });
 
-if (!_env.success) {
-  // 에러의 상세 내용을 구조화하여 출력
-  const errorDetails = _env.error.flatten().fieldErrors;
+if (!_clientEnv.success) {
   console.error(
-    "❌ 환경변수 검증 실패 상세:",
-    JSON.stringify(errorDetails, null, 2)
+    "❌ 클라이언트 환경변수 에러:",
+    _clientEnv.error.flatten().fieldErrors
   );
-
-  // 어떤 환경(서버/클라이언트)에서 실행 중인지 확인
-  console.log(
-    "실행 환경:",
-    typeof window === "undefined" ? "서버" : "클라이언트"
-  );
-
-  throw new Error("환경변수 설정 오류");
+  throw new Error("클라이언트 환경변수 설정 오류");
 }
 
-export const env = _env.data;
+// ✅ 클라이언트용 export (Client Component에서 사용)
+export const publicEnv = _clientEnv.data;
+
+/**
+ * 4. 서버 환경변수 검증 (서버일 때만 실행)
+ * - 브라우저에서 이 파일이 import 되어도 서버 로직을 실행하지 않아 에러가 나지 않습니다.
+ */
+let _serverEnv = {} as ServerEnv;
+
+if (typeof window === "undefined") {
+  const parsed = serverSchema.safeParse(process.env);
+
+  if (!parsed.success) {
+    console.error("❌ 서버 환경변수 에러:", parsed.error.flatten().fieldErrors);
+    throw new Error("서버 환경변수 설정 오류");
+  }
+  _serverEnv = parsed.data;
+}
+
+// ✅ 서버용 export (Server Component / API Route / DB 등에서 사용)
+// 서버에서는 publicEnv와 serverEnv를 합쳐서 제공하거나, 분리해서 써도 됩니다.
+export const env = { ...publicEnv, ..._serverEnv };

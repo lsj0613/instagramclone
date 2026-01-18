@@ -15,7 +15,7 @@ interface NotificationResponse {
 }
 
 // ⭐️ userId 인자 제거
-export async function getNotificationsByUserIdAction(
+export async function getNotificationsAction(
   limit = 20
 ): Promise<NotificationResponse> {
   noStore();

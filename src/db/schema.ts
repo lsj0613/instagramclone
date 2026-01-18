@@ -7,47 +7,51 @@ import {
   primaryKey,
   doublePrecision,
   index,
-  boolean, // boolean 추가됨
-  AnyPgColumn,
+  boolean,
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // -------------------------------------------------------------------
-// 1. 유저 테이블 (Users)
+// 1. Enum 정의
 // -------------------------------------------------------------------
+
+export const followStatusEnum = pgEnum("follow_status", [
+  "PENDING",
+  "ACCEPTED",
+]);
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "LIKE",
+  "COMMENT",
+  "FOLLOW",
+  "FOLLOW_REQUEST",
+  "REPLY",
+  "COMMENT_LIKE",
+]);
+
+// -------------------------------------------------------------------
+// 2. 테이블 정의
+// -------------------------------------------------------------------
+
+// 유저 테이블 (웹사이트 링크 제외)
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
-
-  // 사용자 고유 핸들 (예: @user123)
   username: text("username").notNull().unique(),
-
-  // ⭐️ [추가됨] 사용자 실제 이름 또는 표시 이름
-  // 소셜 로그인 시 가져오거나, 온보딩 때 입력받습니다.
-  // 필수 값이 아니라면 .notNull()을 빼셔도 됩니다.
   name: text("name"),
-
   email: text("email").notNull().unique(),
   password: text("password"),
   profileImage: text("profile_image"),
   bio: text("bio"),
 
-  // 온보딩 완료 여부 플래그
-  hasFinishedOnboarding: boolean("has_finished_onboarding")
-    .default(false)
-    .notNull(),
-
-  // 반정규화 필드
-  postCount: integer("post_count").default(0).notNull(),
-  followerCount: integer("follower_count").default(0).notNull(),
-  followingCount: integer("following_count").default(0).notNull(),
+  hasFinishedOnboarding: boolean("has_finished_onboarding").default(false).notNull(),
+  isPrivate: boolean("is_private").default(false).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
 });
 
-// -------------------------------------------------------------------
-// 2. 게시물 테이블 (Posts)
-// -------------------------------------------------------------------
+// 게시물 테이블
 export const posts = pgTable(
   "posts",
   {
@@ -56,30 +60,21 @@ export const posts = pgTable(
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
     caption: text("caption"),
-    
-    // 위치 정보
-    locationName: text("location_name"), 
+    locationName: text("location_name"),
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
-    
-    // 반정규화 (좋아요/댓글 수)
-    likeCount: integer("like_count").default(0).notNull(),
-    commentCount: integer("comment_count").default(0).notNull(),
-    
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
   },
   (table) => ({
-    authorIdCreatedAtIdx: index("posts_author_id_created_at_idx").on(
-      table.authorId,
-      table.createdAt
-    ),
+    authorIdIdx: index("posts_author_id_idx").on(table.authorId),
     createdAtIdx: index("posts_created_at_idx").on(table.createdAt),
+    authorCreatedIdx: index("posts_author_created_idx").on(table.authorId, table.createdAt),
   })
 );
 
-// -------------------------------------------------------------------
-// 3. 게시물 이미지 테이블 (Post Images)
-// -------------------------------------------------------------------
+// 게시물 이미지 (⭐️ 최적화용 메타데이터만 추가)
 export const postImages = pgTable(
   "post_images",
   {
@@ -88,6 +83,12 @@ export const postImages = pgTable(
       .references(() => posts.id, { onDelete: "cascade" })
       .notNull(),
     url: text("url").notNull(),
+    
+    // ⭐️ [유지] 프론트엔드 레이아웃 이동(CLS) 방지용 (필수 최적화)
+    width: integer("width").notNull(), 
+    height: integer("height").notNull(), 
+    altText: text("alt_text"), 
+
     order: integer("order").notNull().default(0),
   },
   (table) => ({
@@ -95,11 +96,36 @@ export const postImages = pgTable(
   })
 );
 
-// -------------------------------------------------------------------
-// 4. 좋아요 테이블 (Likes)
-// -------------------------------------------------------------------
-export const likes = pgTable(
-  "likes",
+// 댓글 테이블
+export const comments = pgTable(
+  "comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    postId: uuid("post_id")
+      .references(() => posts.id, { onDelete: "cascade" })
+      .notNull(),
+    authorId: uuid("author_id")
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    parentId: uuid("parent_id").references((): any => comments.id, {
+      onDelete: "cascade",
+    }),
+    content: text("content").notNull(),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
+  },
+  (table) => ({
+    postIdIdx: index("comments_post_id_idx").on(table.postId),
+    authorIdIdx: index("comments_author_id_idx").on(table.authorId),
+    parentIdIdx: index("comments_parent_id_idx").on(table.parentId),
+    postCreatedIdx: index("comments_post_created_idx").on(table.postId, table.createdAt),
+  })
+);
+
+// 게시물 좋아요
+export const postLikes = pgTable(
+  "post_likes",
   {
     userId: uuid("user_id")
       .references(() => users.id, { onDelete: "cascade" })
@@ -111,45 +137,29 @@ export const likes = pgTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.userId, t.postId] }),
-    postIdIdx: index("likes_post_id_idx").on(t.postId),
+    postIdIdx: index("post_likes_post_id_idx").on(t.postId),
   })
 );
 
-// -------------------------------------------------------------------
-// 5. 댓글 테이블 (Comments)
-// -------------------------------------------------------------------
-export const comments = pgTable(
-  "comments",
+// 댓글 좋아요
+export const commentLikes = pgTable(
+  "comment_likes",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
-    postId: uuid("post_id")
-      .references(() => posts.id, { onDelete: "cascade" })
-      .notNull(),
-    authorId: uuid("author_id")
+    userId: uuid("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    parentId: uuid("parent_id").references((): AnyPgColumn => comments.id, { 
-      onDelete: "cascade" 
-    }),
-    content: text("content").notNull(),
+    commentId: uuid("comment_id")
+      .references(() => comments.id, { onDelete: "cascade" })
+      .notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => ({
-    postIdCreatedAtIdx: index("comments_post_id_created_at_idx").on(
-      table.postId,
-      table.createdAt
-    ),
-    authorIdIdx: index("comments_author_id_idx").on(table.authorId),
-    parentIdCreatedAtIdx: index("comments_parent_id_created_at_idx").on(
-      table.parentId,
-      table.createdAt
-    ),
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.commentId] }),
+    commentIdIdx: index("comment_likes_comment_id_idx").on(t.commentId),
   })
 );
 
-// -------------------------------------------------------------------
-// 6. 팔로우 테이블 (Follows)
-// -------------------------------------------------------------------
+// 팔로우
 export const follows = pgTable(
   "follows",
   {
@@ -159,81 +169,91 @@ export const follows = pgTable(
     followingId: uuid("following_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
+    status: followStatusEnum("status").default("ACCEPTED").notNull(),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.followerId, t.followingId] }),
-    followingIdIdx: index("follows_following_id_idx").on(t.followingId),
+    followingIdIdx: index("follows_following_id_idx").on(t.followingId, t.status),
+    statusIdx: index("follows_status_idx").on(t.status),
   })
 );
 
-// -------------------------------------------------------------------
-// 7. 알림 테이블 (Notifications) [NEW ✨]
-// -------------------------------------------------------------------
-
-// 2. 알림 타입 Enum 정의
-// DB에는 'notification_type'이라는 이름의 새로운 타입이 생성됩니다.
-export const notificationTypeEnum = pgEnum("notification_type", [
-  "LIKE",
-  "COMMENT",
-  "FOLLOW",
-  "REPLY",
-  "COMMENT_LIKE",
-]);
-
+// 알림
 export const notifications = pgTable(
   "notifications",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-
     recipientId: uuid("recipient_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-
     actorId: uuid("actor_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-
-    // 3. [수정됨] text() 대신 위에서 만든 Enum 사용
-    // 이제 이 컬럼에는 정의된 5가지 값만 들어갈 수 있습니다.
     type: notificationTypeEnum("type").notNull(),
 
     postId: uuid("post_id").references(() => posts.id, { onDelete: "cascade" }),
-
     commentId: uuid("comment_id").references(() => comments.id, {
       onDelete: "cascade",
     }),
 
     isRead: boolean("is_read").default(false).notNull(),
-
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    recipientIdCreatedAtIdx: index(
-      "notifications_recipient_id_created_at_idx"
-    ).on(table.recipientId, table.createdAt),
-
-    undoActionIdx: index("notifications_undo_action_idx").on(
-      table.actorId,
-      table.type,
-      table.postId,
-      table.commentId
+    recipientIdIdx: index("notifications_recipient_id_idx").on(
+      table.recipientId,
+      table.createdAt
     ),
   })
 );
 
 // -------------------------------------------------------------------
-// 관계 설정 (Relations)
+// 3. 관계 설정 (Relations)
 // -------------------------------------------------------------------
 
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
-  likes: many(likes),
+  postLikes: many(postLikes),
+  commentLikes: many(commentLikes),
   comments: many(comments),
   following: many(follows, { relationName: "user_following" }),
   followers: many(follows, { relationName: "user_followers" }),
-  // 내가 받은 알림들
   notifications: many(notifications, { relationName: "user_notifications" }),
+}));
+
+export const postsRelations = relations(posts, ({ one, many }) => ({
+  author: one(users, { fields: [posts.authorId], references: [users.id] }),
+  images: many(postImages),
+  likes: many(postLikes),
+  comments: many(comments),
+}));
+
+export const commentsRelations = relations(comments, ({ one, many }) => ({
+  author: one(users, { fields: [comments.authorId], references: [users.id] }),
+  post: one(posts, { fields: [comments.postId], references: [posts.id] }),
+  likes: many(commentLikes),
+  parent: one(comments, {
+    fields: [comments.parentId],
+    references: [comments.id],
+    relationName: "replies",
+  }),
+  replies: many(comments, { relationName: "replies" }),
+}));
+
+export const postLikesRelations = relations(postLikes, ({ one }) => ({
+  user: one(users, { fields: [postLikes.userId], references: [users.id] }),
+  post: one(posts, { fields: [postLikes.postId], references: [posts.id] }),
+}));
+
+export const commentLikesRelations = relations(commentLikes, ({ one }) => ({
+  user: one(users, { fields: [commentLikes.userId], references: [users.id] }),
+  comment: one(comments, {
+    fields: [commentLikes.commentId],
+    references: [comments.id],
+  }),
 }));
 
 export const followsRelations = relations(follows, ({ one }) => ({
@@ -249,40 +269,6 @@ export const followsRelations = relations(follows, ({ one }) => ({
   }),
 }));
 
-export const postsRelations = relations(posts, ({ one, many }) => ({
-  author: one(users, {
-    fields: [posts.authorId],
-    references: [users.id],
-  }),
-  images: many(postImages),
-  likes: many(likes),
-  comments: many(comments),
-}));
-
-export const postImagesRelations = relations(postImages, ({ one }) => ({
-  post: one(posts, {
-    fields: [postImages.postId],
-    references: [posts.id],
-  }),
-}));
-
-export const likesRelations = relations(likes, ({ one }) => ({
-  user: one(users, { fields: [likes.userId], references: [users.id] }),
-  post: one(posts, { fields: [likes.postId], references: [posts.id] }),
-}));
-
-export const commentsRelations = relations(comments, ({ one, many }) => ({
-  user: one(users, { fields: [comments.authorId], references: [users.id] }),
-  post: one(posts, { fields: [comments.postId], references: [posts.id] }),
-  parent: one(comments, {
-    fields: [comments.parentId],
-    references: [comments.id],
-    relationName: "comment_replies",
-  }),
-  replies: many(comments, { relationName: "comment_replies" }),
-}));
-
-// [NEW] 알림 관계 설정
 export const notificationsRelations = relations(notifications, ({ one }) => ({
   recipient: one(users, {
     fields: [notifications.recipientId],
@@ -292,15 +278,17 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   actor: one(users, {
     fields: [notifications.actorId],
     references: [users.id],
-    relationName: "notification_actor",
   }),
-  post: one(posts, {
-    fields: [notifications.postId],
-    references: [posts.id],
-  }),
-  // [추가] 댓글 정보 연결 (알림 클릭 시 해당 댓글 내용 미리보기 등 가능)
+  post: one(posts, { fields: [notifications.postId], references: [posts.id] }),
   comment: one(comments, {
     fields: [notifications.commentId],
     references: [comments.id],
+  }),
+}));
+
+export const postImagesRelations = relations(postImages, ({ one }) => ({
+  post: one(posts, {
+    fields: [postImages.postId],
+    references: [posts.id],
   }),
 }));

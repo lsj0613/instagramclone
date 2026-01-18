@@ -1,27 +1,27 @@
 import { z } from 'zod';
 
 export const PostCreateSchema = z.object({
-  authorId: z.string().uuid(), // UUID 형식인지 검증
-  caption: z.string(),
-  locationName: z.string().optional(), // undefined 허용
+  // 1. 작성자 ID: 클라이언트가 보내지 않고 서버가 주입하므로 optional 처리
+  authorId: z.string().uuid().optional(),
+
+  // 2. 텍스트 데이터
+  caption: z.string().max(2200, "내용은 2200자 이내여야 합니다."),
+  locationName: z.string().optional(), // 빈 값 허용
   latitude: z.number().optional(),
   longitude: z.number().optional(),
-  // 이미지 URL 배열 (최소 1장 이상 필수라면 .min(1) 추가)
-  images: z.preprocess(
-    (val) => {
-      // 1) 값이 없으면 빈 배열
-      if (!val) return [];
-      // 2) 배열이면 내부 요소 중 문자열이면서 빈 값이 아닌 것만 필터링
-      if (Array.isArray(val)) {
-        return val.filter(
-          (item) => typeof item === "string" && item.trim() !== ""
-        );
-      }
-      return [];
-    },
-    // 2. 검증: 결과가 문자열 배열이어야 하고, 최소 1개 이상이어야 함
-    z.array(z.string().url()).min(1, "이미지는 최소 1장 필요합니다.")
-  ),
+
+  // 3. 이미지 데이터: 문자열 배열 -> 객체 배열로 변경 (⭐️ 핵심 수정)
+  // 이제 URL 뿐만 아니라 DB 최적화에 필요한 width, height를 함께 검증합니다.
+  images: z
+    .array(
+      z.object({
+        url: z.string().url("유효하지 않은 이미지 URL입니다."),
+        width: z.number().int().positive("너비는 양수여야 합니다."),
+        height: z.number().int().positive("높이는 양수여야 합니다."),
+        altText: z.string().optional(), // 접근성 텍스트 (선택)
+      })
+    )
+    .min(1, "이미지는 최소 1장 필요합니다."),
 });
 
 // 2. ⭐️ 핵심: 스키마로부터 TypeScript 타입 자동 추출
