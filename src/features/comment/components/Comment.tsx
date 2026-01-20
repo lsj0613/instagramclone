@@ -61,7 +61,9 @@ export default function CommentItem({ comment }: CommentProps) {
             <span className="text-sm font-bold text-gray-900">
               {author.username}
             </span>
-            <span className="text-xs text-gray-400">{formattedDate}</span>
+            <span className="text-xs text-gray-400" suppressHydrationWarning>
+              {formattedDate}
+            </span>
           </div>
 
           {/* 본인일 경우 혹은 관리자용 옵션 버튼 */}

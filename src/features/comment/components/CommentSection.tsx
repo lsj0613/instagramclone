@@ -45,7 +45,7 @@ export default function CommentSection({ postId }: Props) {
   return (
     <div className="flex flex-col gap-4 pb-4">
       {/* 댓글 리스트 렌더링 */}
-      {comments.map((comment) => (<Comment key={comment.id} comment={comment} />))}
+      {comments.map((comment) => <Comment key={comment.id} comment={comment} />)}
 
       {/* 무한 스크롤 트리거 (로딩 바) */}
       <div

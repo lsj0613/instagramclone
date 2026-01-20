@@ -102,14 +102,14 @@ export const getComments = async ({
       cursorId ? lt(comments.id, cursorId) : undefined
     ),
     limit,
-    orderBy: [desc(comments.createdAt)], // 최신순 (ID 역순과 동일 효과)
+    orderBy: [desc(comments.id)], // ⭐️ 수정: createdAt 대신 id로 정렬하여 커서 기반 페이지네이션 일관성 유지
 
     // 좋아요 수, 답글 수 서브쿼리
     extras: {
       likeCount: sql<number>`(
         SELECT count(*)::int 
         FROM ${commentLikes} 
-        WHERE ${commentLikes.commentId} = ${comments.id}
+        WHERE comment_likes.comment_id = ${comments.id}
       )`.as("like_count"),
       replyCount: sql<number>`(
         SELECT count(*)::int 
@@ -162,13 +162,13 @@ export const getReplies = async ({
       cursorId ? lt(comments.id, cursorId) : undefined
     ),
     limit,
-    orderBy: [desc(comments.createdAt)], // 최신순
+    orderBy: [desc(comments.id)], // ⭐️ 수정: createdAt 대신 id로 정렬하여 커서 기반 페이지네이션 일관성 유지
 
     extras: {
       likeCount: sql<number>`(
         SELECT count(*)::int 
         FROM ${commentLikes} 
-        WHERE ${commentLikes.commentId} = ${comments.id}
+        WHERE comment_likes.comment_id = ${comments.id}
       )`.as("like_count"),
     },
 
