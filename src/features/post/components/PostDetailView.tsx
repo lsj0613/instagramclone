@@ -17,8 +17,16 @@ import { PostDetailData } from "@/services/post.service";
 import Link from "next/link";
 import { UI_TEXT } from "@/shared/constants";
 
-export default function PostDetailView({ post }: { post: PostDetailData }) {
-  // ... (기존 hook 및 상태 유지: isPending, deletePost, isMenuOpen 등)
+// ⭐️ children prop 추가 (댓글 컴포넌트 주입용)
+interface PostDetailViewProps {
+  post: PostDetailData;
+  children?: React.ReactNode;
+}
+
+export default function PostDetailView({
+  post,
+  children,
+}: PostDetailViewProps) {
   const [isPending, startTransition] = useTransition();
   const [isError, setIsError] = useState(false);
 
@@ -68,33 +76,30 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
     });
   };
 
-  // --- 이미지 슬라이더 로직 (루프핑 제거됨) ---
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const hasMultipleImages = post.images.length > 1;
   const lastIndex = post.images.length - 1;
 
-  // ⭐️ 경계 체크 로직 추가
   const handlePrevImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (currentImageIndex === 0) return; // 첫 번째면 동작 안 함
+    if (currentImageIndex === 0) return;
     setCurrentImageIndex((prev) => prev - 1);
   };
 
   const handleNextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (currentImageIndex === lastIndex) return; // 마지막이면 동작 안 함
+    if (currentImageIndex === lastIndex) return;
     setCurrentImageIndex((prev) => prev + 1);
   };
 
-  // ⭐️ 버튼 표시 여부 계산
   const showPrevButton = hasMultipleImages && currentImageIndex > 0;
   const showNextButton = hasMultipleImages && currentImageIndex < lastIndex;
 
   return (
-    <article className="flex flex-col md:flex-row w-full max-w-[935px] md:h-[600px] lg:h-[700px] bg-white border border-gray-300 rounded-xl overflow-hidden shadow-sm">
-      {/* --- [좌측] 이미지 영역 --- */}
-      <div className="w-full md:w-[55%] lg:w-[60%] bg-black relative flex items-center justify-center overflow-hidden h-[400px] md:h-full group select-none">
-        {/* 슬라이드 트랙 */}
+    // ⭐️ 크기 확대: max-w-1200px, h-[85vh] 적용
+    <article className="flex flex-col md:flex-row w-full max-w-[1200px] h-[85vh] bg-white border border-gray-300 rounded-xl overflow-hidden shadow-2xl">
+      {/* --- [좌측] 이미지 영역 (비율 조정) --- */}
+      <div className="w-full md:w-[60%] lg:w-[65%] bg-black relative flex items-center justify-center overflow-hidden h-[50%] md:h-full group select-none">
         <div
           className="flex w-full h-full transition-transform duration-300 ease-in-out"
           style={{ transform: `translateX(-${currentImageIndex * 100}%)` }}
@@ -110,20 +115,18 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
                 fill
                 className="object-contain"
                 priority={index === 0}
-                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 60vw, 600px"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 70vw, 800px"
               />
             </div>
           ))}
         </div>
 
-        {/* 내비게이션 버튼 & 인디케이터 */}
         {hasMultipleImages && (
           <>
-            {/* ⭐️ 이전 버튼 (조건부 렌더링) */}
             {showPrevButton && (
               <button
                 onClick={handlePrevImage}
-                className="absolute left-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full text-white/90 bg-black/20 hover:bg-black/50 backdrop-blur-md transition-all duration-200 opacity-0 group-hover:opacity-100 active:scale-95"
+                className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full text-white/90 bg-black/20 hover:bg-black/50 backdrop-blur-md transition-all duration-200 opacity-0 group-hover:opacity-100 active:scale-95"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -131,7 +134,7 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
                   viewBox="0 0 24 24"
                   strokeWidth={2}
                   stroke="currentColor"
-                  className="w-5 h-5 drop-shadow-md"
+                  className="w-6 h-6"
                 >
                   <path
                     strokeLinecap="round"
@@ -141,12 +144,10 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
                 </svg>
               </button>
             )}
-
-            {/* ⭐️ 다음 버튼 (조건부 렌더링) */}
             {showNextButton && (
               <button
                 onClick={handleNextImage}
-                className="absolute right-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full text-white/90 bg-black/20 hover:bg-black/50 backdrop-blur-md transition-all duration-200 opacity-0 group-hover:opacity-100 active:scale-95"
+                className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full text-white/90 bg-black/20 hover:bg-black/50 backdrop-blur-md transition-all duration-200 opacity-0 group-hover:opacity-100 active:scale-95"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -154,7 +155,7 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
                   viewBox="0 0 24 24"
                   strokeWidth={2}
                   stroke="currentColor"
-                  className="w-5 h-5 drop-shadow-md"
+                  className="w-6 h-6"
                 >
                   <path
                     strokeLinecap="round"
@@ -164,9 +165,7 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
                 </svg>
               </button>
             )}
-
-            {/* 인디케이터 (하단 점) */}
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-1.5 z-20">
+            <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-1.5 z-20">
               {post.images.map((_, idx) => (
                 <button
                   key={idx}
@@ -176,7 +175,7 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
                   }}
                   className={`w-1.5 h-1.5 rounded-full transition-all duration-300 shadow-sm ${
                     idx === currentImageIndex
-                      ? "bg-white scale-110 opacity-100"
+                      ? "bg-white scale-125 opacity-100"
                       : "bg-white/40 hover:bg-white/70 opacity-80"
                   }`}
                 />
@@ -186,11 +185,10 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
         )}
       </div>
 
-      {/* --- [우측] 정보 영역 (기존과 동일) --- */}
-      <div className="w-full md:w-[45%] lg:w-[40%] flex flex-col h-full bg-white relative border-l border-gray-100">
-        {/* ... 헤더, 댓글 목록, 하단 액션 버튼 등 기존 코드 유지 ... */}
-        {/* (편의상 우측 영역 코드는 생략했습니다. 기존 코드 그대로 사용하시면 됩니다.) */}
-        <div className="p-4 border-b border-gray-100 flex gap-3 items-start shrink-0">
+      {/* --- [우측] 정보 영역 --- */}
+      <div className="w-full md:w-[40%] lg:w-[35%] flex flex-col h-full bg-white relative border-l border-gray-100">
+        {/* 1. 헤더 */}
+        <div className="p-4 border-b border-gray-100 flex gap-3 items-center shrink-0 h-[72px]">
           <div className="w-9 h-9 rounded-full border border-gray-100 relative overflow-hidden shrink-0">
             <Image
               src={post.author.profileImage || "/default-profile.png"}
@@ -199,7 +197,7 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
               className="object-cover"
             />
           </div>
-          <div className="flex-1 min-w-0 pt-0.5">
+          <div className="flex-1 min-w-0">
             <Link
               href={`/profile/${post.author.username}`}
               className="font-semibold text-sm text-gray-900 hover:text-gray-600 transition-colors leading-none inline-block"
@@ -215,7 +213,7 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
           <div className="relative shrink-0 ml-1" ref={menuRef}>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-gray-900 hover:text-gray-500 transition-colors p-1"
+              className="text-gray-900 hover:text-gray-500 transition-colors p-2"
             >
               <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="1.5" />
@@ -224,18 +222,14 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
               </svg>
             </button>
             {isMenuOpen && (
-              <div className="absolute top-8 right-0 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden flex flex-col text-sm">
+              <div className="absolute top-10 right-0 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden flex flex-col text-sm">
                 {isAuthor ? (
                   <>
                     <form action={deletePost}>
                       <button
                         type="submit"
                         disabled={isDeleting}
-                        className={`w-full text-left px-4 py-3 font-bold border-b border-gray-100 transition-colors ${
-                          isDeleting
-                            ? "text-gray-400 cursor-not-allowed"
-                            : "text-red-500 hover:bg-gray-50"
-                        }`}
+                        className="w-full text-left px-4 py-3 font-bold text-red-500 hover:bg-gray-50 border-b border-gray-100"
                       >
                         {isDeleting ? UI_TEXT.Deleting : UI_TEXT.Delete}
                       </button>
@@ -260,9 +254,11 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+        {/* 2. 스크롤 영역 (본문 + 댓글) */}
+        <div className="flex-1 overflow-y-auto p-4 scrollbar-hide flex flex-col">
+          {/* 본문 (Caption) */}
           {post.caption && (
-            <div className="flex gap-3 mb-6">
+            <div className="flex gap-3 mb-6 shrink-0">
               <div className="w-8 h-8 rounded-full border border-gray-100 relative overflow-hidden shrink-0">
                 <Image
                   src={post.author.profileImage || "/default-profile.png"}
@@ -275,7 +271,7 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
                 <span className="font-semibold mr-2">
                   {post.author.username}
                 </span>
-                <span className="text-gray-900 whitespace-pre-wrap">
+                <span className="text-gray-900 whitespace-pre-wrap leading-relaxed">
                   {post.caption}
                 </span>
                 <div className="mt-2 text-xs text-gray-400">
@@ -288,15 +284,12 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
               </div>
             </div>
           )}
-          {post.comments?.length > 0 ? (
-            <div className="space-y-4">{/* 댓글 목록 */}</div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-40 text-gray-400 text-sm">
-              <span className="mb-1">{UI_TEXT.NoComments}</span>
-            </div>
-          )}
+
+          {/* ⭐️ children 위치: 여기에 외부에서 주입한 Suspense + CommentList가 렌더링됨 */}
+          <div className="flex-1">{children}</div>
         </div>
 
+        {/* 3. 하단 액션 (좋아요 등) - 입력창 삭제됨 */}
         <div className="p-4 border-t border-gray-100 bg-white mt-auto z-10">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-4">
@@ -358,18 +351,8 @@ export default function PostDetailView({ post }: { post: PostDetailData }) {
               </button>
             </div>
           </div>
-          <div className="font-semibold text-sm text-gray-900 mb-2">
+          <div className="font-semibold text-sm text-gray-900">
             {UI_TEXT.LikeCount(optimisticState.likeCount)}
-          </div>
-          <div className="relative flex items-center">
-            <input
-              type="text"
-              placeholder={UI_TEXT.TypeCommentPlaceholder}
-              className="w-full text-sm outline-none bg-transparent placeholder-gray-400 py-1 pr-10"
-            />
-            <button className="absolute right-0 text-blue-500 font-semibold text-sm opacity-60 hover:opacity-100 transition-opacity">
-              {UI_TEXT.Post}
-            </button>
           </div>
         </div>
       </div>

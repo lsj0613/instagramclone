@@ -1,30 +1,46 @@
 import "server-only";
-
 import { getCurrentUser } from "@/services/user.service";
 import { getPostInfo } from "@/services/post.service";
 import { notFound, redirect } from "next/navigation";
 import { ROUTES } from "@/shared/constants";
 import PostDetailView from "./PostDetailView";
+import "server-only";
+import {
+  HydrationBoundary,
+  QueryClient,
+  dehydrate,
+} from "@tanstack/react-query";
+import { getCommentsForQuery } from "@/features/comment/actions";
+import CommentSection from "@/features/comment/components/CommentSection";
 
-interface Props {
+
+export default async function PostDetailContainer({
+  postId,
+}: {
   postId: string;
-}
-
-export default async function PostDetailContainer({ postId }: Props) {
-  // 1. 사용자 인증 (서버에서 먼저 체크)
+}) {
   const currentUser = await getCurrentUser();
-  if (!currentUser) {
-    redirect(ROUTES.LOGIN);
-  }
+  if (!currentUser) redirect(ROUTES.LOGIN);
 
-  // 2. 데이터 조회
-  const post = await getPostInfo(postId, currentUser.id);
+  const queryClient = new QueryClient();
 
-  // 3. 404 처리
-  if (!post) {
-    notFound();
-  }
+  // 게시물 정보와 댓글 프리페칭을 동시에 실행
+  const [post] = await Promise.all([
+    getPostInfo(postId, currentUser.id),
+    queryClient.prefetchInfiniteQuery({
+      queryKey: ["comments", postId],
+      queryFn: () => getCommentsForQuery({ postId, pageParam: undefined }),
+      initialPageParam: undefined,
+    }),
+  ]);
 
-  // 4. 뷰 컴포넌트에 데이터 주입 (Presenter 패턴)
-  return <PostDetailView key={post.id} post={post} />;
+  if (!post) notFound();
+
+  return (
+    <PostDetailView post={post}>
+      <HydrationBoundary state={dehydrate(queryClient)}>
+        <CommentSection postId={postId} />
+      </HydrationBoundary>
+    </PostDetailView>
+  );
 }
