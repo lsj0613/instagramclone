@@ -4,13 +4,6 @@ import { revalidatePath } from "next/cache";
 import { PostCreateSchema } from "@/shared/utils/validation";
 import { redirect } from "next/navigation";
 import { createPostInDB, deletePostInDb } from "@/services/post.service";
-import db from "@/lib/db";
-import { posts } from "@/db/schema";
-import { and, eq, sql } from "drizzle-orm";
-import {
-  deleteNotification,
-  createNotification,
-} from "@/services/notification.service";
 import { ActionResponse } from "@/lib/types";
 import { ERROR_MESSAGES, ROUTES } from "@/shared/constants"; // ⭐️ 상수 임포트
 import { getCurrentUser } from "@/services/user.service";

@@ -7,12 +7,23 @@ export const getComments = async ({
 }: {
   postId: string;
   pageParam?: string;
-}) => {
-  const cursor = pageParam ?? 0;
+}) => {  
 
-  const res = await fetch(`/api/comments?postId=${postId}&cursor=${cursor}`);
+const params = new URLSearchParams();
+params.append("postId", postId);
 
-  if (!res.ok) throw new Error("Failed to fetch comments");
+// pageParam이 존재하고, "undefined" 문자열이 아닐 때만 추가
+if (pageParam && pageParam !== "undefined") {
+  params.append("cursor", pageParam);
+}
 
-  return res.json() as Promise<GetCommentsResponse>;
+const response = await fetch(`/api/comments?${params.toString()}`, {
+  method: "GET",
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+  if (!response.ok) throw new Error("Failed to fetch comments");
+
+  return response.json() as Promise<GetCommentsResponse>;
 };

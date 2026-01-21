@@ -9,6 +9,9 @@ export async function GET(request: Request) {
   const postId = searchParams.get("postId");
   const cursor = searchParams.get("cursor");
 
+  const safeCursor =
+    cursor === "undefined" || cursor === "null" ? undefined : cursor;
+
   if (!postId) {
     return NextResponse.json({ error: "Post ID is required" }, { status: 400 });
   }
@@ -20,9 +23,9 @@ export async function GET(request: Request) {
   const data = await getCommentsService({
     postId,
     currentUserId: currentUser?.id,
-    cursorId: cursor ? String(cursor) : undefined,
+    cursorId: safeCursor || undefined,
   });
 
-  console.log(data);
+  console.log(data.comments.length);
   return NextResponse.json(data);
 }

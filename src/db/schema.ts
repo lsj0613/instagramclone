@@ -11,6 +11,7 @@ import {
   pgEnum,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { v7 as uuidv7 } from "uuid"; // ⭐️ UUID v7 임포트
 
 // -------------------------------------------------------------------
 // 1. Enum 정의
@@ -34,9 +35,12 @@ export const notificationTypeEnum = pgEnum("notification_type", [
 // 2. 테이블 정의
 // -------------------------------------------------------------------
 
-// 유저 테이블 (웹사이트 링크 제외)
+// 유저 테이블
 export const users = pgTable("users", {
-  id: uuid("id").defaultRandom().primaryKey(),
+  // ⭐️ UUID v7 적용
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   username: text("username").notNull().unique(),
   name: text("name"),
   email: text("email").notNull().unique(),
@@ -44,18 +48,26 @@ export const users = pgTable("users", {
   profileImage: text("profile_image"),
   bio: text("bio"),
 
-  hasFinishedOnboarding: boolean("has_finished_onboarding").default(false).notNull(),
+  hasFinishedOnboarding: boolean("has_finished_onboarding")
+    .default(false)
+    .notNull(),
   isPrivate: boolean("is_private").default(false).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
 // 게시물 테이블
 export const posts = pgTable(
   "posts",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    // ⭐️ UUID v7 적용
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => uuidv7()),
     authorId: uuid("author_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
@@ -65,29 +77,38 @@ export const posts = pgTable(
     longitude: doublePrecision("longitude"),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => ({
     authorIdIdx: index("posts_author_id_idx").on(table.authorId),
     createdAtIdx: index("posts_created_at_idx").on(table.createdAt),
-    authorCreatedIdx: index("posts_author_created_idx").on(table.authorId, table.createdAt),
+    authorCreatedIdx: index("posts_author_created_idx").on(
+      table.authorId,
+      table.createdAt
+    ),
   })
 );
 
-// 게시물 이미지 (⭐️ 최적화용 메타데이터만 추가)
+// 게시물 이미지
 export const postImages = pgTable(
   "post_images",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    // ⭐️ UUID v7 적용
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => uuidv7()),
     postId: uuid("post_id")
       .references(() => posts.id, { onDelete: "cascade" })
       .notNull(),
     url: text("url").notNull(),
-    
-    // ⭐️ [유지] 프론트엔드 레이아웃 이동(CLS) 방지용 (필수 최적화)
-    width: integer("width").notNull(), 
-    height: integer("height").notNull(), 
-    altText: text("alt_text"), 
+
+    // CLS 방지용 메타데이터
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    altText: text("alt_text"),
 
     order: integer("order").notNull().default(0),
   },
@@ -100,7 +121,10 @@ export const postImages = pgTable(
 export const comments = pgTable(
   "comments",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    // ⭐️ UUID v7 적용
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => uuidv7()),
     postId: uuid("post_id")
       .references(() => posts.id, { onDelete: "cascade" })
       .notNull(),
@@ -113,17 +137,23 @@ export const comments = pgTable(
     content: text("content").notNull(),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => ({
     postIdIdx: index("comments_post_id_idx").on(table.postId),
     authorIdIdx: index("comments_author_id_idx").on(table.authorId),
     parentIdIdx: index("comments_parent_id_idx").on(table.parentId),
-    postCreatedIdx: index("comments_post_created_idx").on(table.postId, table.createdAt),
+    postCreatedIdx: index("comments_post_created_idx").on(
+      table.postId,
+      table.createdAt
+    ),
   })
 );
 
-// 게시물 좋아요
+// 게시물 좋아요 (PK가 복합키라 ID 컬럼 없음 -> 변경 불필요)
 export const postLikes = pgTable(
   "post_likes",
   {
@@ -141,7 +171,7 @@ export const postLikes = pgTable(
   })
 );
 
-// 댓글 좋아요
+// 댓글 좋아요 (PK가 복합키라 ID 컬럼 없음 -> 변경 불필요)
 export const commentLikes = pgTable(
   "comment_likes",
   {
@@ -159,7 +189,7 @@ export const commentLikes = pgTable(
   })
 );
 
-// 팔로우
+// 팔로우 (PK가 복합키라 ID 컬럼 없음 -> 변경 불필요)
 export const follows = pgTable(
   "follows",
   {
@@ -172,11 +202,17 @@ export const follows = pgTable(
     status: followStatusEnum("status").default("ACCEPTED").notNull(),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull().$onUpdate(() => new Date()),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.followerId, t.followingId] }),
-    followingIdIdx: index("follows_following_id_idx").on(t.followingId, t.status),
+    followingIdIdx: index("follows_following_id_idx").on(
+      t.followingId,
+      t.status
+    ),
     statusIdx: index("follows_status_idx").on(t.status),
   })
 );
@@ -185,7 +221,10 @@ export const follows = pgTable(
 export const notifications = pgTable(
   "notifications",
   {
-    id: uuid("id").defaultRandom().primaryKey(),
+    // ⭐️ UUID v7 적용
+    id: uuid("id")
+      .primaryKey()
+      .$defaultFn(() => uuidv7()),
     recipientId: uuid("recipient_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
