@@ -83,34 +83,35 @@ export async function updateComment({
 // -------------------------------------------------------------------
 // 1. 댓글 조회 (Comment Get - Cursor Based)
 // -------------------------------------------------------------------
-export const getComments = async ({
+export const getCommentsService = async ({
   postId,
   currentUserId,
-  limit = 20,
-  cursorId, // ⭐️ offset 대신 cursorId 수신
+  limit = 10,
+  cursor = 0,
 }: {
   postId: string;
   currentUserId: string;
   limit?: number;
-  cursorId?: string; // 첫 페이지면 undefined
+  cursor?: number;
 }) => {
-  const topLevelComments = await db.query.comments.findMany({
+  // 1. DB 쿼리 실행
+  const commentsData = await db.query.comments.findMany({
     where: and(
       eq(comments.postId, postId),
-      isNull(comments.parentId),
-      // ⭐️ 핵심: 커서가 있으면 '커서보다 작은(오래된) ID'만 조회
-      cursorId ? lt(comments.id, cursorId) : undefined
+      isNull(comments.parentId) // ⭐️ 중요: 최상위 댓글만 가져옵니다. (대댓글 제외)
     ),
-    limit,
-    orderBy: [desc(comments.id)], // ⭐️ 수정: createdAt 대신 id로 정렬하여 커서 기반 페이지네이션 일관성 유지
+    limit: limit + 1, // 다음 페이지 확인용으로 1개 더 가져옴
+    offset: cursor,
+    orderBy: (comments, { desc }) => [desc(comments.createdAt)], // 최신순
 
-    // 좋아요 수, 답글 수 서브쿼리
+    // ⭐️ [추가] 좋아요 개수 & 대댓글 개수 (Live Count)
     extras: {
       likeCount: sql<number>`(
         SELECT count(*)::int 
         FROM ${commentLikes} 
-        WHERE comment_likes.comment_id = ${comments.id}
+        WHERE ${commentLikes.commentId} = ${comments.id}
       )`.as("like_count"),
+
       replyCount: sql<number>`(
         SELECT count(*)::int 
         FROM ${comments} c2 
@@ -119,26 +120,44 @@ export const getComments = async ({
     },
 
     with: {
-      author: { columns: { id: true, username: true, profileImage: true } },
-      // 내가 좋아요 눌렀는지 확인 (currentUserId가 없으면 빈 배열 반환됨)
+      author: {
+        columns: {
+          id: true,
+          username: true,
+          profileImage: true,
+        },
+      },
+      // ⭐️ [추가] 내가 좋아요 눌렀는지 확인용 (1개만 가져와서 존재 여부 체크)
       likes: {
-        where: currentUserId
-          ? eq(commentLikes.userId, currentUserId)
-          : undefined,
+        where: eq(commentLikes.userId, currentUserId),
         columns: { userId: true },
         limit: 1,
       },
     },
   });
 
-  return topLevelComments.map((comment) => {
+  // 2. 다음 페이지 커서 계산
+  let nextCursor: number | undefined = undefined;
+  if (commentsData.length > limit) {
+    commentsData.pop(); // 확인용 1개 제거
+    nextCursor = cursor + limit;
+  }
+
+  // 3. 데이터 가공 (isOwner, isLiked 추가)
+  const mappedComments = commentsData.map((comment) => {
     const { likes, ...rest } = comment;
+
     return {
       ...rest,
-      isOwner: currentUserId ? comment.authorId === currentUserId : false,
-      isLiked: likes.length > 0,
+      isOwner: comment.authorId === currentUserId, // 내 댓글인지?
+      isLiked: likes.length > 0, // 내가 좋아요 눌렀는지?
     };
   });
+
+  return {
+    comments: mappedComments,
+    nextCursor,
+  };
 };
 
 // -------------------------------------------------------------------

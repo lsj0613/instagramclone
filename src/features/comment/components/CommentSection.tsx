@@ -2,10 +2,9 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useIntersectionObserver } from "@/shared/hooks/useIntersectionObserver";
-import Image from "next/image";
 import { Loader2 } from "lucide-react"; // 로딩 아이콘 (없으면 아무거나 대체)
-import { getCommentsForQuery } from "../actions";
 import Comment from "./Comment"
+import { getComments } from "../api/get-comments";
 
 interface Props {
   postId: string;
@@ -21,7 +20,7 @@ export default function CommentSection({ postId }: Props) {
     status,
   } = useInfiniteQuery({
     queryKey: ["comments", postId], // 서버 컴포넌트와 키가 같아야 함!
-    queryFn: ({ pageParam }) => getCommentsForQuery({ postId, pageParam }),
+    queryFn: ({ pageParam }) => getComments({ postId, pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor, // 다음 요청에 쓸 커서 추출
   });
