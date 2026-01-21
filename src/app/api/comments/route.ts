@@ -20,8 +20,9 @@ export async function GET(request: Request) {
   const data = await getCommentsService({
     postId,
     currentUserId: currentUser?.id,
-    cursor: cursor ? Number(cursor) : 0,
+    cursorId: cursor ? String(cursor) : undefined,
   });
 
+  console.log(data);
   return NextResponse.json(data);
 }

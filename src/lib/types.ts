@@ -1,3 +1,23 @@
+
+import { comments, posts, users } from "@/db/schema";
+import { InferSelectModel } from "drizzle-orm";
+
+export type User = InferSelectModel<typeof users>;
+export type Post = InferSelectModel<typeof posts>;
+export type Comment = InferSelectModel<typeof comments>;
+
+export type PostWithRelations = Post & {
+  author: Pick<User, "id" | "username" | "profileImage">;
+  isLiked: boolean;
+  isBookmarked: boolean;
+  likeCount: number;
+  commentCount: number;
+};
+
+
+
+
+
 export type ActionResponse<T = null> = {
   success: boolean;
   message?: string | null; // 토스트(Toast)나 알림창에 띄울 사용자용 메시지

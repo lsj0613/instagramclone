@@ -10,8 +10,8 @@ import {
   QueryClient,
   dehydrate,
 } from "@tanstack/react-query";
-import { getCommentsForQuery } from "@/features/comment/actions";
 import CommentSection from "@/features/comment/components/CommentSection";
+import { getCommentsService } from "@/services/comment.service";
 
 
 export default async function PostDetailContainer({
@@ -29,12 +29,13 @@ export default async function PostDetailContainer({
     getPostInfo(postId, currentUser.id),
     queryClient.prefetchInfiniteQuery({
       queryKey: ["comments", postId],
-      queryFn: () => getCommentsForQuery({ postId, pageParam: undefined }),
+      queryFn: () => getCommentsService({ postId: postId, currentUserId: currentUser.id, cursorId: undefined }),
       initialPageParam: undefined,
     }),
   ]);
 
   if (!post) notFound();
+  console.log(post);
 
   return (
     <PostDetailView post={post}>

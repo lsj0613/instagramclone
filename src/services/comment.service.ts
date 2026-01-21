@@ -83,33 +83,44 @@ export async function updateComment({
 // -------------------------------------------------------------------
 // 1. 댓글 조회 (Comment Get - Cursor Based)
 // -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+// 1. 타입 추출 (Single Source of Truth)
+// -------------------------------------------------------------------
+export type GetCommentsResponse = Awaited<
+  ReturnType<typeof getCommentsService>
+>;
+export type CommentWithAuthor = GetCommentsResponse["comments"][number];
+
+// -------------------------------------------------------------------
+// 2. 최상위 댓글 조회 (Cursor Based)
+// -------------------------------------------------------------------
 export const getCommentsService = async ({
   postId,
   currentUserId,
   limit = 10,
-  cursor = 0,
+  cursorId, // ID 기반 커서 (UUID)
 }: {
   postId: string;
   currentUserId: string;
   limit?: number;
-  cursor?: number;
+  cursorId?: string;
 }) => {
-  // 1. DB 쿼리 실행
   const commentsData = await db.query.comments.findMany({
     where: and(
       eq(comments.postId, postId),
-      isNull(comments.parentId) // ⭐️ 중요: 최상위 댓글만 가져옵니다. (대댓글 제외)
+      isNull(comments.parentId), // 최상위 댓글만
+      cursorId ? lt(comments.id, cursorId) : undefined // 커서보다 작은 ID(이전 데이터)
     ),
-    limit: limit + 1, // 다음 페이지 확인용으로 1개 더 가져옴
-    offset: cursor,
-    orderBy: (comments, { desc }) => [desc(comments.createdAt)], // 최신순
+    limit: limit + 1,
+    orderBy: [desc(comments.id)], // 커서 기반 페이지네이션을 위해 ID 역순 정렬
 
-    // ⭐️ [추가] 좋아요 개수 & 대댓글 개수 (Live Count)
     extras: {
+      // ⭐️ [해결] 서브쿼리 내 cl 별칭 사용 및 올바른 PK(comments.id) 참조
       likeCount: sql<number>`(
         SELECT count(*)::int 
-        FROM ${commentLikes} 
-        WHERE ${commentLikes.commentId} = ${comments.id}
+        FROM ${commentLikes} cl 
+        WHERE cl.comment_id = ${comments.id}
       )`.as("like_count"),
 
       replyCount: sql<number>`(
@@ -121,13 +132,8 @@ export const getCommentsService = async ({
 
     with: {
       author: {
-        columns: {
-          id: true,
-          username: true,
-          profileImage: true,
-        },
+        columns: { id: true, username: true, profileImage: true },
       },
-      // ⭐️ [추가] 내가 좋아요 눌렀는지 확인용 (1개만 가져와서 존재 여부 체크)
       likes: {
         where: eq(commentLikes.userId, currentUserId),
         columns: { userId: true },
@@ -136,21 +142,19 @@ export const getCommentsService = async ({
     },
   });
 
-  // 2. 다음 페이지 커서 계산
-  let nextCursor: number | undefined = undefined;
+  // 다음 페이지를 위한 커서 계산
+  let nextCursor: string | undefined = undefined;
   if (commentsData.length > limit) {
-    commentsData.pop(); // 확인용 1개 제거
-    nextCursor = cursor + limit;
+    const nextItem = commentsData.pop();
+    nextCursor = nextItem?.id;
   }
 
-  // 3. 데이터 가공 (isOwner, isLiked 추가)
   const mappedComments = commentsData.map((comment) => {
     const { likes, ...rest } = comment;
-
     return {
       ...rest,
-      isOwner: comment.authorId === currentUserId, // 내 댓글인지?
-      isLiked: likes.length > 0, // 내가 좋아요 눌렀는지?
+      isOwner: comment.authorId === currentUserId,
+      isLiked: likes.length > 0,
     };
   });
 
@@ -161,33 +165,32 @@ export const getCommentsService = async ({
 };
 
 // -------------------------------------------------------------------
-// 2. 대댓글 조회 (Reply Get - Cursor Based)
+// 3. 대댓글 조회 (Cursor Based)
 // -------------------------------------------------------------------
-export const getReplies = async ({
+export const getRepliesService = async ({
   parentId,
   currentUserId,
-  limit = 20,
-  cursorId, // ⭐️ offset 대신 cursorId
+  limit = 5,
+  cursorId,
 }: {
   parentId: string;
-  currentUserId?: string;
+  currentUserId: string;
   limit?: number;
   cursorId?: string;
 }) => {
-  const replies = await db.query.comments.findMany({
+  const repliesData = await db.query.comments.findMany({
     where: and(
       eq(comments.parentId, parentId),
-      // ⭐️ 대댓글도 무한 스크롤이 필요하다면 커서 적용
       cursorId ? lt(comments.id, cursorId) : undefined
     ),
-    limit,
-    orderBy: [desc(comments.id)], // ⭐️ 수정: createdAt 대신 id로 정렬하여 커서 기반 페이지네이션 일관성 유지
+    limit: limit + 1,
+    orderBy: [desc(comments.id)],
 
     extras: {
       likeCount: sql<number>`(
         SELECT count(*)::int 
-        FROM ${commentLikes} 
-        WHERE comment_likes.comment_id = ${comments.id}
+        FROM ${commentLikes} cl 
+        WHERE cl.comment_id = ${comments.id}
       )`.as("like_count"),
     },
 
@@ -196,21 +199,30 @@ export const getReplies = async ({
         columns: { id: true, username: true, profileImage: true },
       },
       likes: {
-        where: currentUserId
-          ? eq(commentLikes.userId, currentUserId)
-          : undefined,
+        where: eq(commentLikes.userId, currentUserId),
         columns: { userId: true },
         limit: 1,
       },
     },
   });
 
-  return replies.map((reply) => {
+  let nextCursor: string | undefined = undefined;
+  if (repliesData.length > limit) {
+    const nextItem = repliesData.pop();
+    nextCursor = nextItem?.id;
+  }
+
+  const mappedReplies = repliesData.map((reply) => {
     const { likes, ...rest } = reply;
     return {
       ...rest,
-      isOwner: currentUserId ? reply.authorId === currentUserId : false,
+      isOwner: reply.authorId === currentUserId,
       isLiked: likes.length > 0,
     };
   });
+
+  return {
+    data: mappedReplies,
+    nextCursor,
+  };
 };

@@ -3,7 +3,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useIntersectionObserver } from "@/shared/hooks/useIntersectionObserver";
 import { Loader2 } from "lucide-react"; // 로딩 아이콘 (없으면 아무거나 대체)
-import Comment from "./Comment"
+import Comment from "./Comment";
 import { getComments } from "../api/get-comments";
 
 interface Props {
@@ -34,8 +34,7 @@ export default function CommentSection({ postId }: Props) {
 
   // 3. 데이터 평탄화 (pages 배열 -> 하나의 댓글 리스트로)
   // data.pages[0].data, data.pages[1].data ... 이렇게 되어있는걸 쫙 폅니다.
-  const comments = data?.pages.flatMap((page) => page.data) ?? [];
-
+  const comments = data?.pages.flatMap((page) => page.comments) ?? [];
   if (status === "error")
     return (
       <div className="p-4 text-red-500">댓글을 불러오는데 실패했습니다.</div>
@@ -44,7 +43,9 @@ export default function CommentSection({ postId }: Props) {
   return (
     <div className="flex flex-col gap-4 pb-4">
       {/* 댓글 리스트 렌더링 */}
-      {comments.map((comment) => <Comment key={comment.id} comment={comment} />)}
+      {comments.map((comment) => (
+        <Comment key={comment.id} comment={comment} />
+      ))}
 
       {/* 무한 스크롤 트리거 (로딩 바) */}
       <div
