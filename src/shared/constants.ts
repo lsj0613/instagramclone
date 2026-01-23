@@ -24,6 +24,7 @@ export const ERROR_MESSAGES = {
   // ➕ 로직을 위해 추가한 부분 (스타일 통일)
   SELF_LIKE_NOT_ALLOWED: "본인의 게시물에는 좋아요를 누를 수 없습니다.",
   SEARCH_ERROR: "검색 중 오류가 발생했습니다.",
+  COMMENT_NOT_FOUND_OR_UNAUTHORIZED: "댓글을 찾을 수 없거나 삭제되었습니다."
 } as const;
 
 // 3. 비즈니스 로직 상수 (제한 등)

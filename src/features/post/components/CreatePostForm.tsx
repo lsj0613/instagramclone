@@ -22,11 +22,11 @@ import { uploadToCloudinaryClient } from "@/shared/utils/upload";
 import { UI_TEXT } from "@/shared/constants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PostCreateSchema } from "@/shared/utils/validation";
+import { CreatePostSchema } from "@/shared/utils/validation";
 import z from "zod";
 import { useExitGuard } from "@/shared/hooks/use-exit-guard";
 
-const ClientFormSchema = PostCreateSchema.pick({
+const ClientFormSchema = CreatePostSchema.pick({
   caption: true,
   locationName: true,
 });

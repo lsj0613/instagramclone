@@ -1,5 +1,5 @@
 
-import { getCloudinarySignature } from "@/shared/actions/GetCloudinarySignature";
+import { getCloudinarySignature } from "@/shared/actions/get-cloudinary-signature";
 import { publicEnv } from "@/lib/env";
 
 // 클라이언트에서 실행되는 일반 함수

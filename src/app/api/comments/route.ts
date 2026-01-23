@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCommentsService } from "@/services/comment.service";
+import { getCommentsInDb } from "@/services/comment.service";
 import { getCurrentUser } from "@/services/user.service";
 import { ROUTES } from "@/shared/constants";
 import { redirect } from "next/navigation";
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     redirect(ROUTES.LOGIN);
   }
 
-  const data = await getCommentsService({
+  const data = await getCommentsInDb({
     postId,
     currentUserId: currentUser?.id,
     cursorId: safeCursor || undefined,

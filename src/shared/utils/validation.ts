@@ -1,33 +1,4 @@
-import { z } from 'zod';
-
-export const PostCreateSchema = z.object({
-  // 1. 작성자 ID: 클라이언트가 보내지 않고 서버가 주입하므로 optional 처리
-  authorId: z.string().uuid().optional(),
-
-  // 2. 텍스트 데이터
-  caption: z.string().max(2200, "내용은 2200자 이내여야 합니다."),
-  locationName: z.string().optional(), // 빈 값 허용
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
-
-  // 3. 이미지 데이터: 문자열 배열 -> 객체 배열로 변경 (⭐️ 핵심 수정)
-  // 이제 URL 뿐만 아니라 DB 최적화에 필요한 width, height를 함께 검증합니다.
-  images: z
-    .array(
-      z.object({
-        url: z.string().url("유효하지 않은 이미지 URL입니다."),
-        width: z.number().int().positive("너비는 양수여야 합니다."),
-        height: z.number().int().positive("높이는 양수여야 합니다."),
-        altText: z.string().optional(), // 접근성 텍스트 (선택)
-      })
-    )
-    .min(1, "이미지는 최소 1장 필요합니다."),
-});
-
-// 2. ⭐️ 핵심: 스키마로부터 TypeScript 타입 자동 추출
-// 이제 interface를 따로 만들 필요가 없습니다.
-export type CreatePostParams = z.infer<typeof PostCreateSchema>;
-
+import { z } from "zod";
 
 export const LoginSchema = z.object({
   email: z.string().email("유효한 이메일 형식이 아닙니다."),
@@ -40,7 +11,10 @@ export const SignupSchema = z.object({
     .string()
     .min(3, "사용자 이름은 3자 이상이어야 합니다.")
     .max(20, "사용자 이름은 20자 이내여야 합니다.")
-    .regex(/^[a-zA-Z0-9_]+$/, "사용자 이름은 영문, 숫자, 밑줄(_)만 포함할 수 있습니다."),
+    .regex(
+      /^[a-zA-Z0-9_]+$/,
+      "사용자 이름은 영문, 숫자, 밑줄(_)만 포함할 수 있습니다."
+    ),
   password: z.string().min(6, "비밀번호는 최소 6자 이상이어야 합니다."),
 });
 
@@ -49,3 +23,152 @@ export type SignupInput = z.infer<typeof SignupSchema>;
 export const UuidSchema = z
   .string()
   .uuid({ message: "유효하지 않은 ID 형식입니다." });
+
+// ⭐️ [수정] 알림 관리 스키마 (새로운 필드 추가)
+export const ManageNotificationSchema = z.object({
+  actorId: z.string().uuid(),
+  recipientId: z.string().uuid(),
+  type: z.enum([
+    "LIKE",
+    "COMMENT",
+    "FOLLOW",
+    "REPLY",
+    "COMMENT_LIKE",
+    "FOLLOW_REQUEST",
+  ]),
+  postId: z.string().uuid().optional(),
+  commentId: z.string().uuid().optional(),
+
+  // 새로 추가된 연결 필드들
+  postLikeId: z.string().uuid().optional(),
+  commentLikeId: z.string().uuid().optional(),
+  followId: z.string().uuid().optional(),
+});
+
+export type ManageNotificationDTO = z.infer<typeof ManageNotificationSchema>;
+
+
+// ⭐️ [추가] 게시물 조회 DTO
+export const GetPostSchema = z.object({
+  postId: z.string().uuid(),
+  currentUserId: z.string().uuid().optional().nullable(),
+});
+export type GetPostDTO = z.infer<typeof GetPostSchema>;
+
+// ⭐️ [추가] 게시물 생성 DTO (기존 CreatePostParams 대체)
+// 이미지가 Form에서 객체로 넘어오므로, 이를 검증할 서브 스키마 정의
+const PostImageSchema = z.object({
+  url: z.string().url(),
+  width: z.number(),
+  height: z.number(),
+  altText: z.string().optional(),
+});
+
+export const CreatePostSchema = z.object({
+  authorId: z.string().uuid(),
+  caption: z.string().max(2200).optional(),
+  locationName: z.string().optional(),
+  // 숫자로 변환 (FormData는 모든 게 문자열로 옴)
+  latitude: z.preprocess(
+    (val) => (val ? Number(val) : undefined),
+    z.number().optional()
+  ),
+  longitude: z.preprocess(
+    (val) => (val ? Number(val) : undefined),
+    z.number().optional()
+  ),
+
+  // ⭐️ [핵심] JSON 문자열 파싱 (Preprocess)
+  images: z.preprocess((val) => {
+    // 1. 이미 배열이면 그대로 둠 (직접 호출 시)
+    if (Array.isArray(val)) return val;
+    // 2. 문자열이면 JSON 파싱
+    if (typeof val === "string") {
+      try {
+        return JSON.parse(val);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, z.array(PostImageSchema)), // 파싱 후 이 스키마로 검증
+});
+export type CreatePostDTO = z.infer<typeof CreatePostSchema>;
+
+// ⭐️ [추가] 게시물 삭제 DTO
+export const DeletePostSchema = z.object({
+  postId: z.string().uuid(),
+  userId: z.string().uuid(), // 삭제 요청자
+});
+export type DeletePostDTO = z.infer<typeof DeletePostSchema>;
+
+export const CreateCommentSchema = z.object({
+  postId: z.string().uuid(),
+  authorId: z.string().uuid(),
+  content: z
+    .string()
+    .min(1, "내용을 입력해주세요")
+    .max(500, "댓글은 500자 이내여야 합니다"),
+  parentId: z.string().uuid().optional().nullable(),
+});
+export type CreateCommentDTO = z.infer<typeof CreateCommentSchema>;
+
+// 2. 댓글 수정
+export const UpdateCommentSchema = z.object({
+  commentId: z.string().uuid(),
+  userId: z.string().uuid(),
+  content: z.string().min(1),
+});
+export type UpdateCommentDTO = z.infer<typeof UpdateCommentSchema>;
+
+// 3. 댓글 삭제
+export const DeleteCommentSchema = z.object({
+  commentId: z.string().uuid(),
+  userId: z.string().uuid(),
+});
+export type DeleteCommentDTO = z.infer<typeof DeleteCommentSchema>;
+
+// 4. 댓글 조회 (무한 스크롤)
+export const GetCommentsSchema = z.object({
+  postId: z.string().uuid(),
+  currentUserId: z.string().uuid().optional().nullable(),
+  limit: z.number().default(10),
+  cursorId: z.string().uuid().optional(),
+});
+export type GetCommentsDTO = z.infer<typeof GetCommentsSchema>;
+
+export type GetCommentsInput = z.input<typeof GetCommentsSchema>;
+// 5. 대댓글 조회
+export const GetRepliesSchema = z.object({
+  parentId: z.string().uuid(),
+  currentUserId: z.string().uuid().optional().nullable(),
+  limit: z.number().default(5),
+  cursorId: z.string().uuid().optional(),
+});
+export type GetRepliesDTO = z.infer<typeof GetRepliesSchema>;
+
+export const GetUserSchema = z.object({
+  identifier: z.string(), // userId 또는 username
+  by: z.enum(["id", "username"]), // 무엇으로 찾을지
+  currentUserId: z.string().uuid().optional().nullable(), // 현재 로그인한 유저 (isOwner 확인용)
+});
+export type GetUserDTO = z.infer<typeof GetUserSchema>;
+
+export const UpdatePostSchema = z.object({
+  postId: z.string().uuid(),
+  userId: z.string().uuid(), // 수정 권한 확인용 (작성자 본인인지)
+  caption: z.string().max(2200).optional(),
+  locationName: z.string().optional(),
+
+  // 좌표 수정도 가능하게 할 경우 (FormData 대비 preprocess 적용)
+  latitude: z.preprocess(
+    (val) => (val ? Number(val) : undefined),
+    z.number().optional()
+  ),
+  longitude: z.preprocess(
+    (val) => (val ? Number(val) : undefined),
+    z.number().optional()
+  ),
+});
+
+export type UpdatePostDTO = z.infer<typeof UpdatePostSchema>;

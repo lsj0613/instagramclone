@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/services/user.service";
 import { auth } from "@/lib/auth";
 import { GlobalEventProvider } from "@/shared/components/GlobalEventProvider";
 import ReactQueryProvider from "@/shared/components/ReactQueryProvider";
-
+import NotificationsContainer from "@/features/notification/components/NotificationListContainer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

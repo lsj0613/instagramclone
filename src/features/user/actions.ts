@@ -23,7 +23,7 @@ export async function searchUsersAction(
       return { success: true, data: [] };
     }
 
-    const searchPattern = `%${query}%`;
+    const searchPattern = `${query}%`;
 
     const searchResults = await db
       .select({
@@ -54,4 +54,3 @@ export async function searchUsersAction(
     };
   }
 }
-

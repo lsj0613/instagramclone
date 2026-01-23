@@ -1,116 +1,94 @@
 "use server";
 
-import { auth } from "@/lib/auth";
-import { ActionResponse } from "@/lib/types";
+import { revalidatePath } from "next/cache";
+import { createSafeAction } from "@/lib/safe-action"; // 🛠️ 마법의 도구
 import {
   createComment,
   deleteComment,
   updateComment,
-} from "@/services/comment.service";
-import { revalidatePath } from "next/cache";
-import { z } from "zod";
+} from "@/services/comment.service"; // 👨‍🍳 요리사 (서비스)
+import {
+  CreateCommentSchema,
+  DeleteCommentSchema,
+  UpdateCommentSchema,
+} from "@/shared/utils/validation"; // 📜 레시피 (스키마)
 
-// 스키마 정의
-const CreateCommentSchema = z.object({
-  postId: z.string().uuid(),
-  content: z.string().trim().min(1, "댓글 내용을 입력해주세요."),
-  parentId: z.string().uuid().optional(),
-});
-
-const UpdateCommentSchema = z.object({
-  commentId: z.string().uuid(),
-  content: z.string().trim().min(1, "수정할 내용을 입력해주세요."),
-  postId: z.string().uuid(), // Revalidation을 위해 필요
-});
-
+// ----------------------------------------------------------------------
 // 1. 댓글 생성 액션
-export async function createCommentAction(
-  prevState: ActionResponse | null,
-  formData: FormData
-) {
-  // 1) 인증 체크
-  const session = await auth();
-  if (!session?.user) return { error: "로그인이 필요합니다." };
+// ----------------------------------------------------------------------
 
-  // 2) 입력값 검증
-  const rawData = {
-    postId: formData.get("postId"),
-    content: formData.get("content"),
-    parentId: formData.get("parentId") || undefined,
-  };
+// 💡 Action용 스키마: 클라이언트는 authorId를 보내지 않습니다. (서버에서 주입)
+// 기존 Schema에서 authorId만 쏙 빼고(.omit) 입력받습니다.
+const CreateCommentActionSchema = CreateCommentSchema.omit({ authorId: true });
 
-  const validation = CreateCommentSchema.safeParse(rawData);
-  if (!validation.success) return { error: "입력값이 올바르지 않습니다." };
-
-  try {
-    // 3) 서비스 호출 (DB 저장)
-    await createComment({
-      postId: validation.data.postId,
-      authorId: session.user.id,
-      content: validation.data.content,
-      parentId: validation.data.parentId,
+export const createCommentAction = createSafeAction(
+  CreateCommentActionSchema,
+  async (data, user) => {
+    // 1. 서비스 호출
+    const newComment = await createComment({
+      ...data, // postId, content, parentId
+      authorId: user.id, // ⭐️ user는 safe-action이 찾아줌
     });
 
-    // 4) ⭐️ [핵심] 성공 후 여기서 페이지 갱신 (Controller의 역할)
-    revalidatePath(`/post/${validation.data.postId}`, "page");
+    // 2. 페이지 갱신
+    revalidatePath(`/post/${data.postId}`);
 
-    return { success: true };
-  } catch (error) {
-    console.error("Create Comment Error:", error);
-    return { error: "댓글 작성 중 오류가 발생했습니다." };
+    // 3. 결과 반환
+    return newComment;
   }
-}
+);
 
+// ----------------------------------------------------------------------
 // 2. 댓글 삭제 액션
-export async function deleteCommentAction(commentId: string) {
-  const session = await auth();
-  if (!session?.user) return { error: "로그인이 필요합니다." };
+// ----------------------------------------------------------------------
 
-  try {
-    // 서비스 호출 (삭제된 댓글 데이터 반환받음)
+// 💡 Action용 스키마: 클라이언트는 commentId만 보냅니다.
+// userId는 제외하고(.pick) 입력받습니다.
+const DeleteCommentActionSchema = DeleteCommentSchema.pick({ commentId: true });
+
+export const deleteCommentAction = createSafeAction(
+  DeleteCommentActionSchema,
+  async (data, user) => {
+    // 1. 서비스 호출
+    // (삭제된 댓글 정보를 반환받아야 postId를 알 수 있음)
     const deletedComment = await deleteComment({
-      commentId,
-      userId: session.user.id,
+      commentId: data.commentId,
+      userId: user.id, // 본인 확인용
     });
 
-    // ⭐️ [핵심] 삭제된 댓글이 속해있던 게시물 페이지 갱신
-    // 서비스에서 deletedComment를 리턴해줬기 때문에 postId를 알 수 있음.
-    revalidatePath(`/post/${deletedComment.postId}`, "page");
+    // 2. 페이지 갱신
+    // (삭제된 댓글이 있던 게시물 페이지 갱신)
+    revalidatePath(`/post/${deletedComment.postId}`);
 
-    return { success: true };
-  } catch (error) {
-    console.error("Delete Comment Error:", error);
-    return { error: "댓글 삭제 권한이 없거나 실패했습니다." };
+    // 3. 결과 반환
+    return deletedComment;
   }
-}
+);
 
+// ----------------------------------------------------------------------
 // 3. 댓글 수정 액션
-export async function updateCommentAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user) return { error: "로그인이 필요합니다." };
+// ----------------------------------------------------------------------
 
-  const rawData = {
-    commentId: formData.get("commentId"),
-    content: formData.get("content"),
-    postId: formData.get("postId"), // Form에서 hidden input으로 받아야 함
-  };
+// 💡 Action용 스키마: commentId와 content만 입력받습니다.
+const UpdateCommentActionSchema = UpdateCommentSchema.pick({
+  commentId: true,
+  content: true,
+});
 
-  const validation = UpdateCommentSchema.safeParse(rawData);
-  if (!validation.success) return { error: "입력값이 올바르지 않습니다." };
-
-  try {
-    await updateComment({
-      commentId: validation.data.commentId,
-      userId: session.user.id,
-      content: validation.data.content,
+export const updateCommentAction = createSafeAction(
+  UpdateCommentActionSchema,
+  async (data, user) => {
+    // 1. 서비스 호출
+    const updatedComment = await updateComment({
+      commentId: data.commentId,
+      content: data.content,
+      userId: user.id,
     });
 
-    // ⭐️ [핵심] 페이지 갱신
-    revalidatePath(`/post/${validation.data.postId}`, "page");
+    // 2. 페이지 갱신
+    revalidatePath(`/post/${updatedComment.postId}`);
 
-    return { success: true };
-  } catch (error) {
-    return { error: "댓글 수정에 실패했습니다." };
+    // 3. 결과 반환
+    return updatedComment;
   }
-}
-
+);

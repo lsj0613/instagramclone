@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+
+console.log("------------------ ENV DEBUG START ------------------");
+console.log("1. 현재 실행 경로 (CWD):", process.cwd());
+console.log(
+  "2. CLOUD_NAME 값 확인:",
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME
+);
+console.log("3. API_KEY 값 확인:", process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY);
+console.log("------------------- ENV DEBUG END -------------------");
 /**
  * 1. 클라이언트용 스키마 (브라우저 노출 가능)
  */
@@ -38,6 +47,10 @@ if (!_clientEnv.success) {
     "❌ 클라이언트 환경변수 에러:",
     _clientEnv.error.flatten().fieldErrors
   );
+  console.log("Current ENV:", {
+    API_KEY: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+    CLOUD_NAME: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+  });
   throw new Error("클라이언트 환경변수 설정 오류");
 }
 

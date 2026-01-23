@@ -1,7 +1,7 @@
-import { GetCommentsResponse } from "@/services/comment.service";
+import { PaginatedCommentResult } from "@/services/comment.service";
 
 
-export const getComments = async ({
+export const fetchComments = async ({
   postId,
   pageParam,
 }: {
@@ -25,5 +25,5 @@ const response = await fetch(`/api/comments?${params.toString()}`, {
 });
   if (!response.ok) throw new Error("Failed to fetch comments");
 
-  return response.json() as Promise<GetCommentsResponse>;
+  return response.json() as Promise<PaginatedCommentResult>;
 };

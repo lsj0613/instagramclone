@@ -1,27 +1,38 @@
 {
-  /* 전체 기본 포맷터를 Prettier로 지정 */
+  /* 1. 전역 기본 포맷터 설정: 모든 언어에 대해 Prettier를 우선 적용 */
   "editor.defaultFormatter": "esbenp.prettier-vscode",
 
-  /* 저장 시 자동 포맷팅 활성화 */
+  /* 2. 자동화 설정: 저장 시 포맷팅 및 ESLint 자동 수정 활성화 */
   "editor.formatOnSave": true,
-
-  /* 저장 시 ESLint가 가능한 모든 오류를 자동으로 수정하도록 설정 */
   "editor.codeActionsOnSave": {
+    // 저장 시 ESLint 규칙에 따라 자동 수정 가능한 부분을 처리
     "source.fixAll.eslint": "explicit"
   },
 
-  /* Next.js/TypeScript 환경을 위한 언어별 최적화 */
-  "[javascript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
-  "[javascriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
-  "[typescript]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
-  "[typescriptreact]": { "editor.defaultFormatter": "esbenp.prettier-vscode" },
+  /* 3. 언어별 명시적 설정: 
+     기본 설정이 작동하지 않는 예외 상황을 방지하기 위해 
+     TypeScript 및 React 관련 확장자를 명시적으로 재선언 */
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
 
+  /* 4. 스타일 관련 설정: Tailwind CSS 및 CSS Lint 최적화 */
   "css.lint.unknownAtRules": "ignore",
   "scss.lint.unknownAtRules": "ignore",
   "files.associations": {
     "*.css": "tailwindcss"
   },
 
+  /* 5. 맞춤법 검사 제외 단어 (프로젝트 전용) */
   "cSpell.words": [
     "bemwki",
     "bsnf",

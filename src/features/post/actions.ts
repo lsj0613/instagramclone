@@ -1,109 +1,88 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { PostCreateSchema } from "@/shared/utils/validation";
-import { redirect } from "next/navigation";
-import { createPostInDB, deletePostInDb } from "@/services/post.service";
-import { ActionResponse } from "@/lib/types";
-import { ERROR_MESSAGES, ROUTES } from "@/shared/constants"; // ⭐️ 상수 임포트
-import { getCurrentUser } from "@/services/user.service";
+import { createSafeAction } from "@/lib/safe-action"; // 🛡️ 마법의 도구
+import { createPostInDB, deletePostInDb, updatePostInDB } from "@/services/post.service";
+import {
+  CreatePostSchema,
+  DeletePostSchema,
+  UpdatePostSchema,
+} from "@/shared/utils/validation";
+import { ROUTES } from "@/shared/constants";
 
 // ------------------------------------------------------------------
 // 1. 게시물 생성 액션
 // ------------------------------------------------------------------
-export async function createPostAction(
-  prevState: ActionResponse | null,
-  formData: FormData
-): Promise<ActionResponse> {
-  const currentUser = await getCurrentUser();
 
-  if (!currentUser) {
-    return {
-      success: false,
-      message: ERROR_MESSAGES.AUTH_REQUIRED, 
-    };
-  }
+// 💡 Action용 스키마: authorId는 서버에서 주입하므로 제외
+const CreatePostActionSchema = CreatePostSchema.omit({ authorId: true });
 
-  const latStr = formData.get("latitude")?.toString();
-  const lngStr = formData.get("longitude")?.toString();
+export const createPostAction = createSafeAction(
+  CreatePostActionSchema,
+  async (data, user) => {
+    // 1. 서비스 호출
+    // (formData 파싱, 타입 변환은 safe-action과 Zod가 이미 다 끝냄)
+    const newPost = await createPostInDB({
+      ...data,
+      authorId: user.id, // 안전하게 주입된 user 사용
+    });
 
-  const rawInput = {
-    authorId: currentUser.id,
-    caption: formData.get("caption")?.toString() || "",
-    locationName: formData.get("locationName")?.toString() || undefined,
-    latitude: latStr ? parseFloat(latStr) : undefined,
-    longitude: lngStr ? parseFloat(lngStr) : undefined,
-    images: formData.getAll("images"),
-  };
-
-  const validation = PostCreateSchema.safeParse(rawInput);
-
-  if (!validation.success) {
-    return {
-      success: false,
-      message: ERROR_MESSAGES.INVALID_INPUT, // [수정] 대문자 키
-      fieldErrors: validation.error.flatten().fieldErrors,
-    };
-  }
-
-  try {
-    await createPostInDB(validation.data);
-
-    revalidatePath(ROUTES.PROFILE(currentUser.username));
+    // 2. 페이지 갱신
     revalidatePath(ROUTES.HOME);
-  } catch (error) {
-    console.error("Create Post Error:", error);
-    return {
-      success: false,
-      message: ERROR_MESSAGES.SERVER_ERROR, // [수정] 대문자 키
-    };
+    revalidatePath(ROUTES.PROFILE(user.username));
+
+    // ⭐️ 3. 결과 반환 (redirect는 클라이언트에서 newPost.id를 받아서 수행)
+    return newPost;
   }
+);
 
-  redirect(ROUTES.PROFILE(currentUser.username));
-}
-
-// ------------------------------------------------------------------
-// 2. 좋아요 토글 액션
-// ------------------------------------------------------------------
-export async function togglePostLikeAction(postId: string) {
-  
-}
 
 // ------------------------------------------------------------------
-// 3. 게시물 삭제 액션
+// 2. 게시물 삭제 액션
 // ------------------------------------------------------------------
-export async function deletePostAction(
-  postId: string,
-  prevState: null | ActionResponse,
-  formData: FormData
-): Promise<ActionResponse> {
-  const currentUser = await getCurrentUser();
-  if (!currentUser)
-    return { success: false, message: ERROR_MESSAGES.AUTH_REQUIRED };
 
-  try {
-    await deletePostInDb(postId, currentUser.id);
+// 💡 Action용 스키마: postId만 받음 (userId는 검증용으로 서버 주입)
+const DeletePostActionSchema = DeletePostSchema.pick({ postId: true });
 
-    revalidatePath("/");
-    revalidatePath(`/profile/${currentUser.username}`);
-  } catch (error) {
-    console.error("[DeletePostAction Error]:", error);
+export const deletePostAction = createSafeAction(
+  DeletePostActionSchema,
+  async (data, user) => {
+    // 1. 서비스 호출
+    const deletedPost = await deletePostInDb({
+      postId: data.postId,
+      userId: user.id, // 작성자 본인 확인용
+    });
 
-    const errorMessage = error instanceof Error ? error.message : "";
+    // 2. 페이지 갱신
+    revalidatePath(ROUTES.HOME);
+    revalidatePath(ROUTES.PROFILE(user.username));
 
-    if (errorMessage === "POST_NOT_FOUND_OR_UNAUTHORIZED") {
-      // 권한 없음 또는 게시물 없음
-      return {
-        success: false,
-        message: ERROR_MESSAGES.UNAUTHORIZED, // [수정] (또는 POST_NOT_FOUND)
-      };
-    }
-
-    return {
-      success: false,
-      message: ERROR_MESSAGES.SERVER_ERROR, // [수정]
-    };
+    // 3. 결과 반환
+    return deletedPost;
   }
+);
 
-  redirect(`/profile/${currentUser.username}`);
-}
+
+const UpdatePostActionSchema = UpdatePostSchema.omit({ userId: true });
+
+export const updatePostAction = createSafeAction(
+  UpdatePostActionSchema,
+  async (data, user) => {
+    // 1. 서비스 호출
+    const updatedPost = await updatePostInDB({
+      ...data, // postId, caption, location...
+      userId: user.id, // ⭐️ 보안 핵심: 현재 로그인한 유저 ID 주입
+    });
+
+    // 2. 페이지 갱신 (영향받는 모든 곳)
+    // - 해당 게시물 상세 페이지
+    revalidatePath(ROUTES.POST_DETAIL(data.postId));
+    // - 홈 피드 (내용이 바뀌었으므로)
+    revalidatePath(ROUTES.HOME);
+    // - 내 프로필 (내용이 바뀌었으므로)
+    revalidatePath(ROUTES.PROFILE(user.username));
+
+    // 3. 결과 반환
+    return updatedPost;
+  }
+);

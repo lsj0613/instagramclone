@@ -11,8 +11,7 @@ import {
   dehydrate,
 } from "@tanstack/react-query";
 import CommentSection from "@/features/comment/components/CommentSection";
-import { getCommentsService } from "@/services/comment.service";
-
+import { getCommentsInDb } from "@/services/comment.service";
 
 export default async function PostDetailContainer({
   postId,
@@ -24,12 +23,18 @@ export default async function PostDetailContainer({
 
   const queryClient = new QueryClient();
 
-  // 게시물 정보와 댓글 프리페칭을 동시에 실행
+  // 게시물 정보와 댓글 프리페칭을 동시에 실a행
   const [post] = await Promise.all([
-    getPostInfo(postId, currentUser.id),
+    getPostInfo({ postId: postId, currentUserId: currentUser.id }),
     queryClient.prefetchInfiniteQuery({
       queryKey: ["comments", postId],
-      queryFn: () => getCommentsService({ postId: postId, currentUserId: currentUser.id, cursorId: undefined }),
+      queryFn: () =>
+        getCommentsInDb({
+          postId: postId,
+          limit: 20,
+          currentUserId: currentUser.id,
+          cursorId: undefined,
+        }),
       initialPageParam: undefined,
     }),
   ]);

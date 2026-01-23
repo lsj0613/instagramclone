@@ -3,120 +3,106 @@ import "server-only";
 import db from "@/lib/db";
 import { comments, commentLikes } from "@/db/schema";
 import { and, desc, eq, isNull, sql, lt } from "drizzle-orm";
+import {
+  CreateCommentDTO,
+  DeleteCommentDTO,
+  UpdateCommentDTO,
+  GetCommentsDTO,
+  GetRepliesDTO,
+  GetCommentsSchema,
+  GetCommentsInput,
+} from "@/shared/utils/validation";
+import { ERROR_MESSAGES } from "@/shared/constants";
 
-// ⭐️ [수정] revalidate 관련 import 모두 제거. 오직 DB 작업만 수행.
+// -------------------------------------------------------------------
+// 1. 댓글 생성 (Create) -> 단일 객체 반환
+// -------------------------------------------------------------------
+export async function createComment(
+  data: CreateCommentDTO,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
+) {
+  const dbInstance = tx || db;
 
-// 1. 댓글 생성
-export async function createComment({
-  postId,
-  authorId,
-  content,
-  parentId,
-}: {
-  postId: string;
-  authorId: string;
-  content: string;
-  parentId?: string;
-}) {
-  return await db.transaction(async (tx) => {
-    const [newComment] = await tx
-      .insert(comments)
-      .values({
-        postId,
-        authorId,
-        content,
-        parentId: parentId || null,
-      })
-      .returning();
+  const [newComment] = await dbInstance
+    .insert(comments)
+    .values({
+      postId: data.postId,
+      authorId: data.authorId,
+      content: data.content,
+      parentId: data.parentId || null,
+    })
+    .returning();
 
-    if (!newComment) throw new Error("Failed to create comment");
+  if (!newComment) throw new Error("Failed to create comment");
 
-    // ⭐️ 캐시 무효화 로직 삭제됨 (순수성 유지)
-    return newComment;
-  });
+  return newComment;
 }
 
-// 2. 댓글 삭제
-export async function deleteComment({
-  commentId,
-  userId,
-}: {
-  commentId: string;
-  userId: string;
-}) {
-  const [deletedComment] = await db
+// -------------------------------------------------------------------
+// 2. 댓글 삭제 (Delete) -> 단일 객체 반환
+// -------------------------------------------------------------------
+export async function deleteComment(
+  data: DeleteCommentDTO,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
+) {
+  const dbInstance = tx || db;
+
+  const [deletedComment] = await dbInstance
     .delete(comments)
-    .where(and(eq(comments.id, commentId), eq(comments.authorId, userId)))
+    .where(
+      and(eq(comments.id, data.commentId), eq(comments.authorId, data.userId))
+    )
     .returning();
 
   if (!deletedComment) {
-    throw new Error("COMMENT_NOT_FOUND_OR_UNAUTHORIZED");
+    throw new Error(ERROR_MESSAGES.COMMENT_NOT_FOUND_OR_UNAUTHORIZED);
   }
 
-  // 삭제된 댓글 정보를 반환하여 호출자(Action)가 후속 처리를 할 수 있게 함
   return deletedComment;
 }
 
-// 3. 댓글 수정
-export async function updateComment({
-  commentId,
-  userId,
-  content,
-}: {
-  commentId: string;
-  userId: string;
-  content: string;
-}) {
-  const [updatedComment] = await db
+// -------------------------------------------------------------------
+// 3. 댓글 수정 (Update) -> 단일 객체 반환
+// -------------------------------------------------------------------
+export async function updateComment(
+  data: UpdateCommentDTO,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
+) {
+  const dbInstance = tx || db;
+
+  const [updatedComment] = await dbInstance
     .update(comments)
-    .set({ content })
-    .where(and(eq(comments.id, commentId), eq(comments.authorId, userId)))
+    .set({ content: data.content })
+    .where(
+      and(eq(comments.id, data.commentId), eq(comments.authorId, data.userId))
+    )
     .returning();
 
   if (!updatedComment) {
-    throw new Error("COMMENT_NOT_FOUND_OR_UNAUTHORIZED");
+    throw new Error(ERROR_MESSAGES.COMMENT_NOT_FOUND_OR_UNAUTHORIZED);
   }
 
   return updatedComment;
 }
 
 // -------------------------------------------------------------------
-// 1. 댓글 조회 (Comment Get - Cursor Based)
+// 4. 댓글 목록 조회 (Read - Pagination) -> 페이지네이션 객체 반환
 // -------------------------------------------------------------------
 
-// -------------------------------------------------------------------
-// 1. 타입 추출 (Single Source of Truth)
-// -------------------------------------------------------------------
-export type GetCommentsResponse = Awaited<
-  ReturnType<typeof getCommentsService>
->;
-export type CommentWithAuthor = GetCommentsResponse["comments"][number];
-
-// -------------------------------------------------------------------
-// 2. 최상위 댓글 조회 (Cursor Based)
-// -------------------------------------------------------------------
-export const getCommentsService = async ({
-  postId,
-  currentUserId,
-  limit = 10,
-  cursorId, // ID 기반 커서 (UUID)
-}: {
-  postId: string;
-  currentUserId: string;
-  limit?: number;
-  cursorId?: string;
-}) => {
-  const commentsData = await db.query.comments.findMany({
-    where: and(
-      eq(comments.postId, postId),
-      isNull(comments.parentId), // 최상위 댓글만
-      cursorId ? lt(comments.id, cursorId) : undefined // 커서보다 작은 ID(이전 데이터)
-    ),
+// 내부 쿼리 빌더
+const _buildCommentQuery = (
+  condition: any,
+  limit: number,
+  currentUserId?: string | null
+) => {
+  return db.query.comments.findMany({
+    where: condition,
     limit: limit + 1,
-    orderBy: [desc(comments.id)], // 커서 기반 페이지네이션을 위해 ID 역순 정렬
-
+    orderBy: [desc(comments.id)],
     extras: {
-      // ⭐️ [해결] 서브쿼리 내 cl 별칭 사용 및 올바른 PK(comments.id) 참조
       likeCount: sql<number>`(
         SELECT count(*)::int 
         FROM ${commentLikes} cl 
@@ -128,101 +114,88 @@ export const getCommentsService = async ({
         FROM ${comments} c2 
         WHERE c2.parent_id = ${comments.id}
       )`.as("reply_count"),
-    },
 
+      isLiked: sql<boolean>`EXISTS (
+        SELECT 1 FROM ${commentLikes} cl
+        WHERE cl.comment_id = ${comments.id}
+        AND cl.user_id = ${
+          currentUserId || "00000000-0000-0000-0000-000000000000"
+        }
+      )`.as("is_liked"),
+    },
     with: {
       author: {
         columns: { id: true, username: true, profileImage: true },
       },
-      likes: {
-        where: eq(commentLikes.userId, currentUserId),
-        columns: { userId: true },
-        limit: 1,
-      },
     },
   });
+};
 
-  // 다음 페이지를 위한 커서 계산
+// 타입 정의
+type RawCommentList = Awaited<ReturnType<typeof _buildCommentQuery>>;
+export type CommentWithAuthor = RawCommentList[number] & {
+  isOwner: boolean;
+};
+
+// ⭐️ [수정] 반환 타입 이름을 명확하게 변경 (PaginatedResult)
+export interface PaginatedCommentResult {
+  comments: CommentWithAuthor[];
+  nextCursor?: string;
+}
+// 내부 공통 함수 (Private)
+const _fetchPaginatedComments = async (
+  condition: any,
+  limit: number,
+  currentUserId?: string | null
+): Promise<PaginatedCommentResult> => {
+  // 1. 쿼리 실행
+  const rawData = await _buildCommentQuery(condition, limit, currentUserId);
+
+  // 2. 커서 계산
   let nextCursor: string | undefined = undefined;
-  if (commentsData.length > limit) {
-    const nextItem = commentsData.pop();
+  if (rawData.length > limit) {
+    const nextItem = rawData.pop();
     nextCursor = nextItem?.id;
   }
 
-  const mappedComments = commentsData.map((comment) => {
-    const { likes, ...rest } = comment;
-    return {
-      ...rest,
-      isOwner: comment.authorId === currentUserId,
-      isLiked: likes.length > 0,
-    };
-  });
+  // 3. isOwner 매핑
+  const mappedComments = rawData.map((item) => ({
+    ...item,
+    isOwner: currentUserId ? item.authorId === currentUserId : false,
+  }));
 
-  return {
-    comments: mappedComments,
-    nextCursor,
-  };
+  return { comments: mappedComments, nextCursor };
 };
 
 // -------------------------------------------------------------------
-// 3. 대댓글 조회 (Cursor Based)
-// -------------------------------------------------------------------
-export const getRepliesService = async ({
-  parentId,
-  currentUserId,
-  limit = 5,
-  cursorId,
-}: {
-  parentId: string;
-  currentUserId: string;
-  limit?: number;
-  cursorId?: string;
-}) => {
-  const repliesData = await db.query.comments.findMany({
-    where: and(
-      eq(comments.parentId, parentId),
-      cursorId ? lt(comments.id, cursorId) : undefined
-    ),
-    limit: limit + 1,
-    orderBy: [desc(comments.id)],
 
-    extras: {
-      likeCount: sql<number>`(
-        SELECT count(*)::int 
-        FROM ${commentLikes} cl 
-        WHERE cl.comment_id = ${comments.id}
-      )`.as("like_count"),
-    },
+// 1. 최상위 댓글 조회 (Public)
+export const getCommentsInDb = async (data: GetCommentsInput) => {
+  const validatedData = GetCommentsSchema.parse(data);
 
-    with: {
-      author: {
-        columns: { id: true, username: true, profileImage: true },
-      },
-      likes: {
-        where: eq(commentLikes.userId, currentUserId),
-        columns: { userId: true },
-        limit: 1,
-      },
-    },
-  });
+  const condition = and(
+    eq(comments.postId, validatedData.postId),
+    isNull(comments.parentId), // ⭐️ 차이점 1
+    validatedData.cursorId ? lt(comments.id, validatedData.cursorId) : undefined
+  );
 
-  let nextCursor: string | undefined = undefined;
-  if (repliesData.length > limit) {
-    const nextItem = repliesData.pop();
-    nextCursor = nextItem?.id;
-  }
+  return await _fetchPaginatedComments(
+    condition,
+    validatedData.limit,
+    validatedData.currentUserId
+  );
+};
 
-  const mappedReplies = repliesData.map((reply) => {
-    const { likes, ...rest } = reply;
-    return {
-      ...rest,
-      isOwner: reply.authorId === currentUserId,
-      isLiked: likes.length > 0,
-    };
-  });
+// 2. 대댓글 조회 (Public)
+export const getReplies = async (data: GetRepliesDTO) => {
+  const condition = and(
+    eq(comments.parentId, data.parentId), // ⭐️ 차이점 2
+    data.cursorId ? lt(comments.id, data.cursorId) : undefined
+  );
 
-  return {
-    data: mappedReplies,
-    nextCursor,
-  };
+  return await _fetchPaginatedComments(
+    condition,
+    data.limit,
+    data.currentUserId
+  );
 };
