@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  useState,
-  useRef,
-  useActionState,
-  startTransition,
-  useEffect,
-} from "react";
+import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { createPostAction } from "@/features/post/actions";
 import ImagePreview from "./ImagePreview";
 import {
@@ -22,62 +17,49 @@ import { uploadToCloudinaryClient } from "@/shared/utils/upload";
 import { UI_TEXT } from "@/shared/constants";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { CreatePostSchema } from "@/shared/utils/validation";
 import z from "zod";
 import { useExitGuard } from "@/shared/hooks/use-exit-guard";
 
-const ClientFormSchema = CreatePostSchema.pick({
-  caption: true,
-  locationName: true,
+// 1. 클라이언트 폼 스키마
+const ClientFormSchema = z.object({
+  caption: z.string().max(2200),
+  locationName: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  // ⭐️ [변경 1] 깔끔하게 string으로 변경 (에러 메시지 전용)
+  images: z.string().optional(),
 });
 
 type ClientFormType = z.infer<typeof ClientFormSchema>;
 
 export default function CreatePostForm() {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [serverState, formAction, isActionPending] = useActionState(
-    createPostAction,
-    null
-  );
 
   const {
     register,
     handleSubmit,
-    formState: { isDirty, errors: clientErrors },
+    formState: { isDirty, errors },
     setError,
     clearErrors,
   } = useForm<ClientFormType>({
     resolver: zodResolver(ClientFormSchema),
   });
+
+  // ⭐️ [확인] 이제 여기서 errors.images를 읽으면 정확히 연결됩니다.
+  const imageErrorMessage = errors.images?.message;
+
   const [isUploading, setIsUploading] = useState(false);
-  const isPending = isUploading || isActionPending;
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+
   const isDataTouched = isDirty || files.length > 0;
   useExitGuard(isDataTouched);
 
-  // 알림 상태
-  const [alertState, setAlertState] = useState<{
-    show: boolean;
-    message: string;
-  }>({
-    show: false,
-    message: "",
-  });
-
-  // 알림 자동 숨김 타이머
-  useEffect(() => {
-    if (alertState.show) {
-      const timer = setTimeout(() => {
-        setAlertState((prev) => ({ ...prev, show: false }));
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [alertState.show]);
-
   const onSubmit = async (data: ClientFormType) => {
     if (files.length === 0) {
-      setError("root.images", {
+      // ⭐️ [변경 2] root.images -> images (정식 필드 사용)
+      setError("images", {
         type: "manual",
         message: "이미지는 최소 1장 필요합니다.",
       });
@@ -85,35 +67,43 @@ export default function CreatePostForm() {
     }
 
     setIsUploading(true);
+
     try {
       const uploadPromises = files.map((file) =>
         uploadToCloudinaryClient(file)
       );
-      const imageUrls = await Promise.all(uploadPromises);
+      const uploadedImages = await Promise.all(uploadPromises);
 
-      const formData = new FormData();
-      formData.append("caption", data.caption);
-      if (data.locationName) {
-        formData.append("locationName", data.locationName);
+      const payload = {
+        ...data, // 폼 입력값 (caption, location 등)
+        images: uploadedImages, // 이미지 URL 배열 (string[])
+      };
+
+      const result = await createPostAction(null, payload);
+
+      if (result?.fieldErrors) {
+        Object.entries(result.fieldErrors).forEach(([key, msg]) => {
+          // images 키가 와도 스키마에 string으로 정의돼 있어서 OK!
+          setError(key as keyof ClientFormType, {
+            message: Array.isArray(msg) ? msg[0] : msg,
+          });
+        });
+      } else if (result?.message) {
+        setError("root.server", { message: result.message });
       }
-      imageUrls.forEach((url) => {
-        formData.append("images", url);
-      });
-
-      startTransition(() => {
-        formAction(formData);
-      });
     } catch (error) {
-      console.error("Upload failed:", error);
-      setError("root.server", { message: "업로드 중 오류가 발생했습니다." });
+      console.error("Submission failed:", error);
+      setError("root.server", { message: "네트워크 오류가 발생했습니다." });
+    } finally {
+      setIsUploading(false);
     }
-    setIsUploading(false);
   };
 
   const handleFiles = (newFiles: FileList | null) => {
     if (!newFiles) return;
 
-    setAlertState((prev) => ({ ...prev, show: false }));
+    // ⭐️ [변경 3] root.images -> images
+    clearErrors("images");
 
     const validFiles = Array.from(newFiles).filter((file) =>
       file.type.startsWith("image/")
@@ -129,20 +119,16 @@ export default function CreatePostForm() {
       return !isDuplicate;
     });
 
-    // 중복 발생 시 알림 표시
     if (uniqueFiles.length < validFiles.length) {
-      setTimeout(() => {
-        setAlertState({
-          show: true,
-          message: "이미 추가된 사진은 제외되었습니다.",
-        });
-      }, 50);
+      // ⭐️ [변경 4] root.images -> images
+      setError("images", {
+        type: "manual",
+        message: "이미 추가된 사진은 제외되었습니다.",
+      });
     }
 
     if (uniqueFiles.length === 0) return;
-
     setFiles((prev) => [...prev, ...uniqueFiles]);
-    clearErrors("root.images");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -152,21 +138,20 @@ export default function CreatePostForm() {
 
   const onDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // 이벤트가 window로 퍼지는 것을 방지
+    e.stopPropagation();
     setIsDragging(true);
   };
 
   const onDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // 자식 요소로 마우스가 들어갔을 때의 leave 처리
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setIsDragging(false);
   };
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // 브라우저의 기본 파일 열기 동작을 여기서 최종적으로 가로챔
+    e.stopPropagation();
     setIsDragging(false);
     handleFiles(e.dataTransfer.files);
   };
@@ -174,9 +159,6 @@ export default function CreatePostForm() {
   const removeImage = (index: number) => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
-
-  const hasImageError =
-    !!clientErrors.root?.images || !!serverState?.fieldErrors?.images;
 
   return (
     <div className="max-w-xl mx-auto py-8">
@@ -191,17 +173,18 @@ export default function CreatePostForm() {
           <p className="text-sm text-gray-500">{UI_TEXT.CreatePostDesc}</p>
         </div>
 
-        {(serverState?.message || clientErrors.root?.server?.message) && (
+        {/* 서버 에러 (root.server) */}
+        {errors.root?.server?.message && (
           <div
             className="flex items-center gap-2 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium animate-pulse"
             aria-live="polite"
           >
             <XCircle size={18} />
-            {serverState?.message || clientErrors.root?.server?.message}
+            {errors.root.server.message}
           </div>
         )}
 
-        {/* ⭐️ 이미지 섹션: relative 필수 */}
+        {/* 이미지 섹션 */}
         <div className="space-y-4 relative">
           <div className="flex items-center justify-between">
             <label className="block text-sm font-semibold text-gray-700">
@@ -239,7 +222,7 @@ export default function CreatePostForm() {
                     ? "border-blue-500 bg-blue-50/50 scale-[1.01]"
                     : "border-gray-200 hover:border-blue-400 hover:bg-gray-50"
                 }
-                ${hasImageError ? "border-red-300 bg-red-50" : ""}
+                ${imageErrorMessage ? "border-red-300 bg-red-50" : ""}
               `}
             >
               <div className="flex flex-col items-center gap-3 text-gray-400 group-hover:text-blue-500 transition-colors">
@@ -285,40 +268,29 @@ export default function CreatePostForm() {
             </div>
           )}
 
-          {/* ⭐️ [핵심 수정] 
-            absolute와 -bottom-6을 사용하여 '아래쪽 여백 공간'에 메시지를 띄웁니다.
-            공간을 차지하지 않으므로 레이아웃이 밀리지 않습니다.
-          */}
+          {/* 에러 메시지 표시 */}
           <div
             className={`
               absolute left-0 -bottom-6 w-full
-              flex items-center gap-1.5 text-sm font-medium text-red-600 pl-1
+              flex items-center gap-1.5 pl-1
               transition-opacity duration-300 ease-in-out
-              ${alertState.show ? "opacity-100" : "opacity-0"}
+              ${imageErrorMessage ? "opacity-100" : "opacity-0"}
             `}
           >
-            {/* 아이콘 위치 미세 조정 */}
-            <AlertCircle size={16} className="shrink-0" />
-
-            {/* 텍스트 줄높이 제거(leading-none) 및 1px 아래로 내리기(pt-[1px]) */}
-            <span className="leading-none pt-[4px]">{alertState.message}</span>
+            {imageErrorMessage && (
+              <>
+                <AlertCircle size={16} className="shrink-0 text-red-500" />
+                <span className="text-xs text-red-500 font-medium leading-none pt-[2px]">
+                  {imageErrorMessage}
+                </span>
+              </>
+            )}
           </div>
-
-          {hasImageError && (
-            <p className="text-xs text-red-500 font-medium pl-1 animate-pulse">
-              *{" "}
-              {clientErrors.root?.images?.message ||
-                serverState?.fieldErrors?.images}
-            </p>
-          )}
         </div>
 
-        {/* 문구 입력 */}
+        {/* 캡션 입력 */}
         <div className="space-y-2">
-          <label
-            htmlFor="caption"
-            className="block text-sm font-semibold text-gray-700"
-          >
+          <label className="block text-sm font-semibold text-gray-700">
             {UI_TEXT.EnterCaption}
             <span className="text-blue-500 text-xs font-normal ml-1">
               {UI_TEXT.Required}
@@ -329,32 +301,26 @@ export default function CreatePostForm() {
               <FileText size={18} />
             </div>
             <textarea
-              id="caption"
               rows={4}
               {...register("caption")}
               className={`w-full pl-10 p-3 bg-gray-50 border rounded-xl outline-none transition-all resize-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${
-                clientErrors.caption || serverState?.fieldErrors?.caption
+                errors.caption
                   ? "border-red-300 focus:border-red-500"
                   : "border-gray-200"
               }`}
               placeholder={UI_TEXT.CaptionPlaceholder}
             />
           </div>
-          {(clientErrors.caption || serverState?.fieldErrors?.caption) && (
+          {errors.caption && (
             <p className="text-xs text-red-500 font-medium pl-1">
-              *{" "}
-              {clientErrors.caption?.message ||
-                serverState?.fieldErrors?.caption}
+              * {errors.caption.message}
             </p>
           )}
         </div>
 
         {/* 위치 입력 */}
         <div className="space-y-2">
-          <label
-            htmlFor="locationName"
-            className="block text-sm font-semibold text-gray-700"
-          >
+          <label className="block text-sm font-semibold text-gray-700">
             {UI_TEXT.AddLocation}{" "}
             <span className="text-gray-400 text-xs font-normal">
               {UI_TEXT.Optional}
@@ -366,7 +332,6 @@ export default function CreatePostForm() {
             </div>
             <input
               type="text"
-              id="locationName"
               {...register("locationName")}
               className="w-full pl-10 p-3 bg-gray-50 border border-gray-200 rounded-xl outline-none transition-all focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               placeholder={UI_TEXT.LocationPlaceholder}
@@ -376,17 +341,17 @@ export default function CreatePostForm() {
 
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isUploading}
           className={`
             w-full flex items-center justify-center py-4 rounded-xl font-bold text-white text-lg transition-all duration-200 shadow-md
             ${
-              isPending
+              isUploading
                 ? "bg-blue-300 cursor-not-allowed"
                 : "bg-blue-500 hover:bg-blue-600 hover:shadow-lg active:scale-[0.98]"
             }
           `}
         >
-          {isPending ? (
+          {isUploading ? (
             <>
               <Loader2 className="animate-spin mr-2" size={20} />
               {UI_TEXT.Posting}

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getCurrentUser, getUser } from "@/services/user.service";
+import { getCurrentUser, getUserProfile } from "@/services/user.service";
 import { notFound, redirect } from "next/navigation";
 import { ROUTES } from "@/shared/constants";
 import ProfileDetailView from "./ProfileDetailView";
@@ -13,7 +13,11 @@ export default async function ProfileContainer({ username }: { username: string 
   }
 
   // 2. 프로필 데이터 조회
-  const user = await getUser(username, "username", "profile", currentUser.id);
+  const user = await getUserProfile({
+    identifier : username,
+    by : "username",
+    currentUserId : currentUser.id}
+  );
 
   // 3. 존재하지 않는 유저 처리
   if (!user) {

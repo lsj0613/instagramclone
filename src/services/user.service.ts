@@ -3,7 +3,7 @@ import "server-only";
 import db from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { users, posts, follows, postLikes, comments } from "@/db/schema";
-import { eq, sql, SQL, and } from "drizzle-orm";
+import { eq, sql, SQL } from "drizzle-orm";
 import { cache } from "react";
 import { GetUserDTO } from "@/shared/utils/validation";
 
@@ -21,6 +21,7 @@ const _buildSummaryQuery = (condition: SQL) =>
       name: true,
       profileImage: true,
       bio: true,
+      isPrivate: true, // ⭐️ [추가] 비공개 계정 여부
     },
     with: {
       // 최신 게시물 3개 미리보기
@@ -30,14 +31,14 @@ const _buildSummaryQuery = (condition: SQL) =>
         extras: {
           likeCount: sql<number>`(
             SELECT count(*)::int 
-            FROM ${postLikes} 
-            WHERE ${postLikes.postId} = ${posts.id}          
+            FROM ${postLikes} pl
+            WHERE pl.post_id = ${posts.id}          
           )`.as("like_count"),
 
           commentCount: sql<number>`(
             SELECT count(*)::int 
-            FROM ${comments} 
-            WHERE ${comments.postId} = ${posts.id}
+            FROM ${comments} c
+            WHERE c.post_id = ${posts.id}
           )`.as("comment_count"),
         },
         with: {
@@ -61,28 +62,29 @@ const _buildProfileQuery = (condition: SQL) =>
       profileImage: true,
       bio: true,
       createdAt: true,
+      isPrivate: true, // ⭐️ [추가] 비공개 계정 여부
     },
     extras: {
       postCount: sql<number>`(
         SELECT count(*)::int 
-        FROM ${posts} 
-        WHERE ${posts.authorId} = ${users.id}
+        FROM ${posts} p
+        WHERE p.author_id = ${users.id}
       )`.as("post_count"),
 
       // 팔로워: 나를(followingId=me) 팔로우하는 사람 수
       followerCount: sql<number>`(
         SELECT count(*)::int 
-        FROM ${follows} 
-        WHERE ${follows.followingId} = ${users.id} 
-        AND ${follows.status} = 'ACCEPTED'
+        FROM ${follows} f
+        WHERE f.following_id = ${users.id} 
+        AND f.status = 'ACCEPTED'
       )`.as("follower_count"),
 
       // 팔로잉: 내가(followerId=me) 팔로우하는 사람 수
       followingCount: sql<number>`(
         SELECT count(*)::int 
-        FROM ${follows} 
-        WHERE ${follows.followerId} = ${users.id} 
-        AND ${follows.status} = 'ACCEPTED'
+        FROM ${follows} f
+        WHERE f.follower_id = ${users.id} 
+        AND f.status = 'ACCEPTED'
       )`.as("following_count"),
     },
     with: {
@@ -91,14 +93,14 @@ const _buildProfileQuery = (condition: SQL) =>
         extras: {
           likeCount: sql<number>`(
             SELECT count(*)::int 
-            FROM ${postLikes} 
-            WHERE ${postLikes.postId} = ${posts.id}
+            FROM ${postLikes} pl
+            WHERE pl.post_id = ${posts.id}
           )`.as("like_count"),
 
           commentCount: sql<number>`(
             SELECT count(*)::int 
-            FROM ${comments} 
-            WHERE ${comments.postId} = ${posts.id}
+            FROM ${comments} c
+            WHERE c.post_id = ${posts.id}
           )`.as("comment_count"),
         },
         with: {
@@ -115,6 +117,7 @@ const _buildProfileQuery = (condition: SQL) =>
 // 2. 타입 정의 (Types)
 // -------------------------------------------------------------------
 
+// 자동으로 isPrivate 필드가 포함된 타입으로 추론됩니다.
 type RawSummaryData = NonNullable<
   Awaited<ReturnType<typeof _buildSummaryQuery>>
 >;
@@ -179,7 +182,7 @@ export const getUserProfile = cache(_getUserProfile);
 
 const _currentUserTypeHelper = () =>
   db.query.users.findFirst({
-    columns: { password: false }, // 비밀번호 제외
+    columns: { password: false },
   });
 
 export type CurrentUserData = NonNullable<

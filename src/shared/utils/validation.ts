@@ -59,6 +59,7 @@ export type GetPostDTO = z.infer<typeof GetPostSchema>;
 // 이미지가 Form에서 객체로 넘어오므로, 이를 검증할 서브 스키마 정의
 const PostImageSchema = z.object({
   url: z.string().url(),
+  publicId : z.string(),
   width: z.number(),
   height: z.number(),
   altText: z.string().optional(),

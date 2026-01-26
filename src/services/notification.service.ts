@@ -83,3 +83,42 @@ export async function deleteNotification(
 
   return deletedNotification;
 }
+
+
+/**
+ * 특정 알림을 읽음 처리합니다.
+ * 본인의 알림이 아니거나 이미 읽은 상태라면 업데이트되지 않습니다.
+ * * @param notificationId 알림 ID (UUID)
+ * @param userId 요청한 유저 ID (UUID)
+ * @returns 업데이트된 알림 객체 또는 업데이트 된 게 없으면 undefined
+ */
+// DTO 타입 정의 (필요하다면 validation 파일 등으로 이동)
+export type MarkAsReadDTO = {
+  notificationId: string;
+  userId: string;
+};
+
+// 4. 읽음 처리 (Update) - DTO 패턴 적용
+export async function markNotificationAsRead(
+  data: MarkAsReadDTO,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx?: any
+) {
+  const dbInstance = tx || db;
+
+  const [updatedNotification] = await dbInstance
+    .update(notifications)
+    .set({
+      isRead: true,
+    })
+    .where(
+      and(
+        eq(notifications.id, data.notificationId),
+        eq(notifications.recipientId, data.userId),
+        eq(notifications.isRead, false)
+      )
+    )
+    .returning();
+
+  return updatedNotification;
+}

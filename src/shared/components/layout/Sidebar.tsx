@@ -29,9 +29,6 @@ import { UI_TEXT } from "@/shared/constants";
 import NotificationListContainer from "@/features/notification/components/NotificationListContainer";
 import { CurrentUserData } from "@/services/user.service";
 
-export interface SessionUserProps {
-  currentUser?: CurrentUserData | null;
-}
 
 const initialState = {
   success: false,
@@ -48,7 +45,7 @@ const BASE_NAV_ITEMS = [
   { name: "설정", href: "/settings", icon: Settings, type: "link" },
 ];
 
-export default function Sidebar({ currentUser }: SessionUserProps) {
+export default function Sidebar({ currentUser }: { currentUser?: CurrentUserData | null }) {
   const pathname = usePathname();
   const [expandedState, setExpandedState] = useState<
     "none" | "search" | "notifications"

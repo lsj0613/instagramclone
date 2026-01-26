@@ -9,6 +9,7 @@ import {
   UpdatePostSchema,
 } from "@/shared/utils/validation";
 import { ROUTES } from "@/shared/constants";
+import { redirect } from "next/navigation";
 
 // ------------------------------------------------------------------
 // 1. 게시물 생성 액션
@@ -31,6 +32,7 @@ export const createPostAction = createSafeAction(
     revalidatePath(ROUTES.HOME);
     revalidatePath(ROUTES.PROFILE(user.username));
 
+    redirect(ROUTES.PROFILE(user.username));
     // ⭐️ 3. 결과 반환 (redirect는 클라이언트에서 newPost.id를 받아서 수행)
     return newPost;
   }
@@ -56,6 +58,7 @@ export const deletePostAction = createSafeAction(
     // 2. 페이지 갱신
     revalidatePath(ROUTES.HOME);
     revalidatePath(ROUTES.PROFILE(user.username));
+    redirect(ROUTES.PROFILE(user.username));
 
     // 3. 결과 반환
     return deletedPost;

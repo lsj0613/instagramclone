@@ -1,7 +1,7 @@
 import "server-only";
 
 import db from "@/lib/db";
-import { posts, postImages, postLikes, comments } from "@/db/schema";
+import { posts, postImages, postLikes, comments, users } from "@/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { cache } from "react";
 // ⭐️ DTO 임포트
@@ -24,24 +24,23 @@ const _buildPostQuery = (postId: string, userId?: string | null) =>
     extras: {
       likeCount: sql<number>`(
         SELECT count(*)::int 
-        FROM ${postLikes} 
-        WHERE ${postLikes.postId} = ${posts.id}
+        FROM post_likes -- ⭐️ ${postLikes} 대신 실제 테이블명 사용
+        WHERE post_likes.post_id = ${posts.id}
       )`.as("like_count"),
 
       commentCount: sql<number>`(
         SELECT count(*)::int 
-        FROM ${comments} 
-        WHERE ${comments.postId} = ${posts.id}
+        FROM comments -- ⭐️ ${comments} 대신 실제 테이블명 사용
+        WHERE comments.post_id = ${posts.id}
       )`.as("comment_count"),
 
-      // ⭐️ 좋아요 여부 확인 (작성자 본인도 좋아요 가능)
-      // userId가 null/undefined면 무조건 false 반환
+      // ⭐️ 수정된 부분
       isLiked: sql<boolean>`EXISTS (
-        SELECT 1 FROM ${postLikes} 
-        WHERE ${postLikes.postId} = ${posts.id} 
-        AND ${postLikes.userId} = ${
-        userId || "00000000-0000-0000-0000-000000000000"
-      }
+        SELECT 1 FROM post_likes 
+        WHERE post_likes.post_id = ${posts.id} 
+        AND post_likes.user_id = ${
+          userId ?? "00000000-0000-0000-0000-000000000000"
+        }::uuid
       )`.as("is_liked"),
     },
     with: {
@@ -58,7 +57,7 @@ const _buildPostQuery = (postId: string, userId?: string | null) =>
       },
       comments: {
         // 댓글 미리보기용 (최신순 3개 정도만 가져오거나 하는 등 최적화 가능)
-        limit: 3, 
+        limit: 3,
         orderBy: (comments, { desc }) => [desc(comments.createdAt)],
         with: {
           author: {
@@ -122,6 +121,7 @@ export const getPostInfo = cache(_getPostInfo);
 /**
  * 게시물 생성
  */
+
 export async function createPostInDB(
   data: CreatePostDTO,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -129,12 +129,9 @@ export async function createPostInDB(
 ) {
   const dbInstance = tx || db;
 
-  // 트랜잭션 사용이 강제되는 로직이므로,
-  // 외부에서 tx가 안 넘어왔다면 내부에서 트랜잭션을 엽니다.
-  // (Drizzle은 중첩 트랜잭션을 지원하지 않을 수 있어 주의 필요하지만,
-  // 보통 tx가 없으면 db.transaction을 열고, 있으면 그대로 쓰는 패턴 사용)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const performInsert = async (trx: any) => {
+    // 1. 게시물 생성
     const [newPost] = await trx
       .insert(posts)
       .values({
@@ -144,16 +141,18 @@ export async function createPostInDB(
         latitude: data.latitude,
         longitude: data.longitude,
       })
-      .returning(); // 생성된 객체 반환
+      .returning();
 
     if (!newPost) {
       throw new Error("Failed to create post");
     }
 
+    // 2. 이미지 생성
     if (data.images.length > 0) {
       const imageRecords = data.images.map((img, index) => ({
         postId: newPost.id,
         url: img.url,
+        publicId: img.publicId,
         width: img.width,
         height: img.height,
         altText: img.altText,
@@ -163,7 +162,11 @@ export async function createPostInDB(
       await trx.insert(postImages).values(imageRecords);
     }
 
-    return newPost;
+    // 4. 합쳐서 반환
+    // 클라이언트가 사용하기 편하게 author 객체를 포함시킵니다.
+    return {
+      ...newPost,
+    };
   };
 
   if (tx) {

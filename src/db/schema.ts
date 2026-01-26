@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   pgTable,
   text,
@@ -108,6 +109,10 @@ export const postImages = pgTable(
     postId: uuid("post_id")
       .references(() => posts.id, { onDelete: "cascade" })
       .notNull(),
+
+    // ⭐️ [추가됨] Cloudinary 관리용 ID
+    publicId: text("public_id").notNull(),
+
     url: text("url").notNull(),
 
     width: integer("width").notNull(),

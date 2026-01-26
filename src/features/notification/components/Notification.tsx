@@ -6,13 +6,14 @@ import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { type NotificationWithRelations } from "@/services/notification.service";
 import { UI_TEXT } from "@/shared/constants";
+import { markNotificationAsReadAction } from "@/features/notification/actions";
 
 interface NotificationProps {
   notification: NotificationWithRelations;
 }
 
 export default function Notification({ notification }: NotificationProps) {
-  const { actor, type, createdAt, postId, isRead } = notification;
+  const { id, actor, type, createdAt, postId, isRead } = notification;
 
   const getNotificationContent = () => {
     switch (type) {
@@ -37,11 +38,25 @@ export default function Notification({ notification }: NotificationProps) {
     }
   };
 
+  const handleClick = () => {
+    // 이미 읽은 알림이면 서버 요청을 보내지 않음 (서버 비용 절약 & 불필요한 트래픽 방지)
+    if (isRead) return;
+
+    // Fire-and-forget 방식:
+    // 여기서 await를 쓰지 않는 것이 중요합니다.
+    // await를 쓰면 읽음 처리가 완료될 때까지 페이지 이동이 지연될 수 있습니다.
+    // 에러가 나더라도 사용자는 페이지 이동에 성공해야 하므로 catch로 로그만 남깁니다.
+    markNotificationAsReadAction(null, { notificationId: id }).catch((err) => {
+      console.error("알림 읽음 처리 실패:", err);
+    });
+  };
+
   const content = getNotificationContent();
 
   return (
     <Link
       href={content.href}
+      onClick={handleClick} // ⭐️ 클릭 이벤트 연결
       className="flex w-full items-start gap-3 px-4 py-3 transition-colors hover:bg-gray-50 active:bg-gray-100 group"
     >
       {/* 프로필 이미지 */}

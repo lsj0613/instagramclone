@@ -1,8 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { z } from "zod";
 import { getCurrentUser } from "@/services/user.service"; // 방금 만든 서비스
 import { ERROR_MESSAGES } from "@/shared/constants";
 import { ActionResponse } from "./types";
-
+import isRedirectError from "@/shared/utils/redirect";
 
 /**
  * 🛡️ createSafeAction
@@ -48,6 +49,7 @@ export function createSafeAction<TInput, TOutput>(
     try {
       const user = await getCurrentUser();
       if (!user) {
+        console.log("🚫 [SafeAction:Fail] 인증되지 않은 유저"); // 로그 추가
         return { success: false, message: ERROR_MESSAGES.AUTH_REQUIRED };
       }
 
@@ -59,6 +61,10 @@ export function createSafeAction<TInput, TOutput>(
       const validationResult = schema.safeParse(rawData);
 
       if (!validationResult.success) {
+        console.log(
+          "⚠️ [SafeAction:Fail] 유효성 검사 실패",
+          validationResult.error.flatten()
+        ); // 로그 추가
         return {
           success: false,
           message: ERROR_MESSAGES.INVALID_INPUT,
@@ -68,8 +74,14 @@ export function createSafeAction<TInput, TOutput>(
 
       const result = await action(validationResult.data, user);
 
+      console.log("[SafeAction:Success]", JSON.stringify(result, null, 2));
+
       return { success: true, data: result };
     } catch (error) {
+      if (isRedirectError(error)) {
+        console.log("✈️ [SafeAction:Redirect] 리다이렉트 발생 (성공)"); // 로그 추가
+        throw error; // 리다이렉트는 Next.js 엔진이 처리하도록 다시 던짐
+      }
       console.error("Action Error:", error);
       const message =
         error instanceof Error ? error.message : ERROR_MESSAGES.SERVER_ERROR;
@@ -77,3 +89,5 @@ export function createSafeAction<TInput, TOutput>(
     }
   };
 }
+
+

@@ -1,23 +1,14 @@
 "use client";
 
-import {
-  useState,
-  useOptimistic,
-  useTransition,
-  useEffect,
-  useRef,
-  useActionState,
-} from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import Image from "next/image";
-import {
-  deletePostAction,
-  togglePostLikeAction,
-} from "@/features/post/actions";
-import { PostDetailData } from "@/services/post.service";
 import Link from "next/link";
+import { deletePostAction } from "@/features/post/actions";
+import { PostDetailData } from "@/services/post.service";
 import { UI_TEXT } from "@/shared/constants";
+import isRedirectError from "@/shared/utils/redirect";
+import { useLike } from "@/shared/hooks/use-like"; // ⭐️ useLike 훅 import
 
-// ⭐️ children prop 추가 (댓글 컴포넌트 주입용)
 interface PostDetailViewProps {
   post: PostDetailData;
   children?: React.ReactNode;
@@ -27,55 +18,46 @@ export default function PostDetailView({
   post,
   children,
 }: PostDetailViewProps) {
-  const [isPending, startTransition] = useTransition();
-  const [isError, setIsError] = useState(false);
+  // ----------------------------------------------------------------------
+  // 1. 💖 좋아요 로직 (useLike 훅 사용)
+  // ----------------------------------------------------------------------
+  const { isLiked, likeCount, toggleLike } = useLike({
+    targetId: post.id,
+    targetType: "POST",
+    initialIsLiked: post.isLiked, // DTO에 해당 필드가 있다고 가정
+    initialLikeCount: post.likeCount,
+  });
 
-  const deletePostWithId = deletePostAction.bind(null, post.id);
-  const [deletingState, deletePost, isDeleting] = useActionState(
-    deletePostWithId,
-    null
-  );
+  // ----------------------------------------------------------------------
+  // 2. 🗑️ 삭제 로직
+  // ----------------------------------------------------------------------
+  const [isDeleting, startDeleteTransition] = useTransition();
 
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const handleDeletePost = () => {
+    if (!confirm("정말 이 게시물을 삭제하시겠습니까?")) return;
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsMenuOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const isAuthor = post.isOwner;
-
-  const [optimisticState, setOptimisticState] = useOptimistic(
-    { isLiked: post.isLiked, likeCount: post.likeCount },
-    (state, newIsLiked: boolean) => ({
-      isLiked: newIsLiked,
-      likeCount: state.likeCount + (newIsLiked ? 1 : -1),
-    })
-  );
-
-  const isLiked = optimisticState.isLiked;
-
-  const handleLikeClick = () => {
-    if (isAuthor) return;
-    const nextState = !optimisticState.isLiked;
-    startTransition(async () => {
+    startDeleteTransition(async () => {
       try {
-        setOptimisticState(nextState);
-        await togglePostLikeAction(post.id);
-        setIsError(false);
+        const result = await deletePostAction(null, { postId: post.id });
+
+        if (!result.success) {
+          alert(result.message || "게시물 삭제에 실패했습니다.");
+        }
+        // 성공 시 리다이렉트는 서버 액션 내부에서 처리됨
       } catch (error) {
-        setIsError(true);
-        setTimeout(() => setIsError(false), 500);
+        // Next.js 리다이렉트 에러는 다시 던져줘야 정상 작동함
+        if (isRedirectError(error)) {
+          throw error;
+        }
+        console.error("Delete error:", error);
+        alert("네트워크 오류가 발생했습니다.");
       }
     });
   };
 
+  // ----------------------------------------------------------------------
+  // 3. 🖼️ 이미지 슬라이더 로직
+  // ----------------------------------------------------------------------
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const hasMultipleImages = post.images.length > 1;
   const lastIndex = post.images.length - 1;
@@ -95,10 +77,26 @@ export default function PostDetailView({
   const showPrevButton = hasMultipleImages && currentImageIndex > 0;
   const showNextButton = hasMultipleImages && currentImageIndex < lastIndex;
 
+  // ----------------------------------------------------------------------
+  // 4. ⚙️ 메뉴(더보기) 로직
+  // ----------------------------------------------------------------------
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isAuthor = post.isOwner;
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
-    // ⭐️ 크기 확대: max-w-1200px, h-[85vh] 적용
     <article className="flex flex-col md:flex-row w-full max-w-[1200px] h-[85vh] bg-white border border-gray-300 rounded-xl overflow-hidden shadow-2xl">
-      {/* --- [좌측] 이미지 영역 (비율 조정) --- */}
+      {/* --- [좌측] 이미지 영역 --- */}
       <div className="w-full md:w-[60%] lg:w-[65%] bg-black relative flex items-center justify-center overflow-hidden h-[50%] md:h-full group select-none">
         <div
           className="flex w-full h-full transition-transform duration-300 ease-in-out"
@@ -107,7 +105,7 @@ export default function PostDetailView({
           {post.images.map((image, index) => (
             <div
               key={image.id || index}
-              className="relative w-full h-full flex-shrink-0"
+              className="relative w-full h-full shrink-0"
             >
               <Image
                 src={image.url}
@@ -225,15 +223,14 @@ export default function PostDetailView({
               <div className="absolute top-10 right-0 w-48 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden flex flex-col text-sm">
                 {isAuthor ? (
                   <>
-                    <form action={deletePost}>
-                      <button
-                        type="submit"
-                        disabled={isDeleting}
-                        className="w-full text-left px-4 py-3 font-bold text-red-500 hover:bg-gray-50 border-b border-gray-100"
-                      >
-                        {isDeleting ? UI_TEXT.Deleting : UI_TEXT.Delete}
-                      </button>
-                    </form>
+                    <button
+                      onClick={handleDeletePost}
+                      disabled={isDeleting}
+                      className="w-full text-left px-4 py-3 font-bold text-red-500 hover:bg-gray-50 border-b border-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isDeleting ? UI_TEXT.Deleting : UI_TEXT.Delete}
+                    </button>
+
                     <button className="w-full text-left px-4 py-3 text-gray-900 hover:bg-gray-50 border-b border-gray-100">
                       {UI_TEXT.Edit}
                     </button>
@@ -274,7 +271,10 @@ export default function PostDetailView({
                 <span className="text-gray-900 whitespace-pre-wrap leading-relaxed">
                   {post.caption}
                 </span>
-                <div className="mt-2 text-xs text-gray-400">
+                <div
+                  className="mt-2 text-xs text-gray-400"
+                  suppressHydrationWarning
+                >
                   {new Date(post.createdAt).toLocaleDateString("ko-KR", {
                     year: "numeric",
                     month: "long",
@@ -285,38 +285,50 @@ export default function PostDetailView({
             </div>
           )}
 
-          {/* ⭐️ children 위치: 여기에 외부에서 주입한 Suspense + CommentList가 렌더링됨 */}
+          {/* 댓글 목록 (children) */}
           <div className="flex-1">{children}</div>
         </div>
 
-        {/* 3. 하단 액션 (좋아요 등) - 입력창 삭제됨 */}
+        {/* 3. 하단 액션 (좋아요 등) */}
         <div className="p-4 border-t border-gray-100 bg-white mt-auto z-10">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-4">
+              {/* ⭐️ 좋아요 버튼 (useLike 훅의 toggle과 state 연결) */}
               <button
-                onClick={handleLikeClick}
-                disabled={isAuthor || isPending}
-                className={`focus:outline-none transition-transform active:scale-90 ${
-                  isError ? "animate-pulse" : ""
+                onClick={toggleLike}
+                className={`focus:outline-none transition-transform active:scale-125 ${
+                  isLiked ? "text-red-500" : "text-gray-900 hover:text-gray-600"
                 }`}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill={isLiked ? "#ff3040" : "none"}
-                  viewBox="0 0 24 24"
-                  strokeWidth={1.5}
-                  stroke={isLiked ? "#ff3040" : "currentColor"}
-                  className={`w-7 h-7 ${
-                    isLiked ? "scale-110" : "text-gray-900 hover:text-gray-600"
-                  }`}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
-                  />
-                </svg>
+                {isLiked ? (
+                  // ❤️ 꽉 찬 하트
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-7 h-7 animate-in zoom-in duration-200"
+                  >
+                    <path d="m11.645 20.91-.007-.003-.022-.012a15.247 15.247 0 0 1-.383-.218 25.18 25.18 0 0 1-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0 1 12 5.052 5.5 5.5 0 0 1 16.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 0 1-4.244 3.17 15.247 15.247 0 0 1-.383.219l-.022.012-.007.004-.003.001a.752.752 0 0 1-.704 0l-.003-.001Z" />
+                  </svg>
+                ) : (
+                  // 🤍 빈 하트
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={1.5}
+                    stroke="currentColor"
+                    className="w-7 h-7"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"
+                    />
+                  </svg>
+                )}
               </button>
+
               <button className="focus:outline-none hover:opacity-60 transition-opacity">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -351,8 +363,10 @@ export default function PostDetailView({
               </button>
             </div>
           </div>
+
+          {/* ⭐️ 좋아요 개수 (useLike 훅의 state 연결) */}
           <div className="font-semibold text-sm text-gray-900">
-            {UI_TEXT.LikeCount(optimisticState.likeCount)}
+            좋아요 {likeCount.toLocaleString()}개
           </div>
         </div>
       </div>
