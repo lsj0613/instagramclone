@@ -93,3 +93,9 @@ export const UI_TEXT = {
   StartSearch: "검색어를 입력하여 사용자를 찾아보세요.",
   Searching: "검색 중...",
 } as const;
+
+
+export const CLOUDINARY_FOLDERS = {
+  POST_IMAGES: "user_posts",
+  PROFILE_IMAGES: "profile_images", // 나중에 프사 기능 만들 때 사용
+} as const;

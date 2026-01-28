@@ -1,5 +1,6 @@
 import { getCloudinarySignature } from "@/shared/actions/get-cloudinary-signature";
 import { publicEnv } from "@/lib/env";
+import { CLOUDINARY_FOLDERS } from "../constants";
 
 // 반환 타입 정의 (사용처에서 자동완성 되도록)
 export interface CloudinaryUploadResult {
@@ -22,7 +23,7 @@ export async function uploadToCloudinaryClient(
   formData.append("api_key", publicEnv.NEXT_PUBLIC_CLOUDINARY_API_KEY);
   formData.append("timestamp", timestamp.toString());
   formData.append("signature", signature);
-  formData.append("folder", "user_posts");
+  formData.append("folder", CLOUDINARY_FOLDERS.POST_IMAGES);
 
   // 3. Cloudinary 전송
   const response = await fetch(

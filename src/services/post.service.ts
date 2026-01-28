@@ -12,37 +12,14 @@ import {
   UpdatePostDTO
 } from "@/shared/utils/validation";
 import { ERROR_MESSAGES } from "@/shared/constants";
+import { unstable_cache } from "next/cache";
 
 // -------------------------------------------------------------------
 // 1. 타입 헬퍼 & 내부 쿼리 빌더
 // -------------------------------------------------------------------
-
-// 내부적으로 사용할 쿼리 빌더 (외부 노출 X)
-const _buildPostQuery = (postId: string, userId?: string | null) =>
-  db.query.posts.findFirst({
+const _fetchStaticPostData = async (postId: string) => {
+  return await db.query.posts.findFirst({
     where: eq(posts.id, postId),
-    extras: {
-      likeCount: sql<number>`(
-        SELECT count(*)::int 
-        FROM post_likes -- ⭐️ ${postLikes} 대신 실제 테이블명 사용
-        WHERE post_likes.post_id = ${posts.id}
-      )`.as("like_count"),
-
-      commentCount: sql<number>`(
-        SELECT count(*)::int 
-        FROM comments -- ⭐️ ${comments} 대신 실제 테이블명 사용
-        WHERE comments.post_id = ${posts.id}
-      )`.as("comment_count"),
-
-      // ⭐️ 수정된 부분
-      isLiked: sql<boolean>`EXISTS (
-        SELECT 1 FROM post_likes 
-        WHERE post_likes.post_id = ${posts.id} 
-        AND post_likes.user_id = ${
-          userId ?? "00000000-0000-0000-0000-000000000000"
-        }::uuid
-      )`.as("is_liked"),
-    },
     with: {
       author: {
         columns: {
@@ -55,68 +32,96 @@ const _buildPostQuery = (postId: string, userId?: string | null) =>
       images: {
         orderBy: (postImages, { asc }) => [asc(postImages.order)],
       },
-      comments: {
-        // 댓글 미리보기용 (최신순 3개 정도만 가져오거나 하는 등 최적화 가능)
-        limit: 3,
-        orderBy: (comments, { desc }) => [desc(comments.createdAt)],
-        with: {
-          author: {
-            columns: {
-              id: true,
-              username: true,
-              profileImage: true,
-            },
-          },
-        },
-      },
     },
   });
+};
 
-type RawPostData = NonNullable<Awaited<ReturnType<typeof _buildPostQuery>>>;
-
-// 가공된 반환 데이터 타입
-export type PostDetailData = Omit<RawPostData, "createdAt"> & {
-  createdAt: string;
-  isOwner: boolean; // 작성자 본인 여부
+// ⭐️ Data Cache 적용 (게시물 수정 시에만 revalidateTag('post-{id}') 하면 됨)
+const getCachedStaticPost = async (postId: string) => {
+  return await unstable_cache(
+    async () => {
+      const post = await _fetchStaticPostData(postId);
+      if (!post) return null;
+      // Date 직렬화
+      return {
+        ...post,
+        createdAt: post.createdAt.toISOString(),
+      };
+    },
+    [`post-static-${postId}`],
+    {
+      tags: [`post-${postId}`],
+      revalidate: 86400, // 24시간 (수정 없으면 하루 동안 유지)
+    }
+  )();
 };
 
 // -------------------------------------------------------------------
-// 2. 서비스 함수 (DTO 적용)
+// [B] 동적 데이터 (실시간 조회)
+// : 좋아요 개수, 댓글 개수, 내 좋아요 여부
 // -------------------------------------------------------------------
+const getRealtimeInteractions = async (postId: string, userId?: string) => {
+  // 1. 카운트 쿼리 (인덱스 타면 매우 빠름)
+  const counts = await db
+    .select({
+      likeCount: sql<number>`count(distinct ${postLikes.id})`,
+      commentCount: sql<number>`count(distinct ${comments.id})`,
+    })
+    .from(posts)
+    .leftJoin(postLikes, eq(postLikes.postId, posts.id))
+    .leftJoin(comments, eq(comments.postId, posts.id))
+    .where(eq(posts.id, postId))
+    .groupBy(posts.id);
 
-// 내부 함수: 캐싱을 위해 분리
-const _getPostInfo = async (
-  data: GetPostDTO
-): Promise<PostDetailData | null> => {
-  // DTO 검증은 Action/HOF 레벨에서 이미 수행되었다고 가정하지만,
-  // 서비스 안전을 위해 내부 로직 내에서 UUID 검증이 필요하다면 수행
-  // 여기서는 이미 Valid한 UUID가 들어온다고 봅니다.
+  const likeCount = Number(counts[0]?.likeCount ?? 0);
+  const commentCount = Number(counts[0]?.commentCount ?? 0);
 
-  const post = await _buildPostQuery(data.postId, data.currentUserId);
-
-  if (!post) {
-    return null;
+  // 2. 내 좋아요 여부 (userId가 있을 때만)
+  let isLiked = false;
+  if (userId) {
+    const likeExists = await db.query.postLikes.findFirst({
+      where: and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)),
+      columns: { id: true },
+    });
+    isLiked = !!likeExists;
   }
 
-  // 작성자 본인 여부 확인
-  const isOwner = data.currentUserId 
-    ? post.authorId === data.currentUserId 
-    : false;
+  // 3. 내 소유 여부
+  // (소유권 확인을 위해 post의 authorId가 필요하므로 여기서는 패스하거나,
+  // 위 정적 데이터와 합칠 때 계산합니다.)
+
+  return { likeCount, commentCount, isLiked };
+};
+
+// -------------------------------------------------------------------
+// [C] 서비스 함수 (정적 + 동적 병합)
+// -------------------------------------------------------------------
+export const getPostDetail = async ({
+  postId,
+  currentUserId,
+}: {
+  postId: string,
+  currentUserId? : string
+}) => {
+  // 1. [병렬 처리] 정적 데이터(캐시)와 동적 데이터(DB)를 동시에 요청
+  const [staticData, dynamicData] = await Promise.all([
+    getCachedStaticPost(postId),
+    getRealtimeInteractions(postId, currentUserId),
+  ]);
+
+  if (!staticData) return null;
+
+  // 2. 데이터 병합
+  const isOwner = currentUserId ? staticData.authorId === currentUserId : false;
 
   return {
-    ...post,
-    isOwner,
-    createdAt: post.createdAt.toISOString(),
+    ...staticData, // 본문, 이미지, 작성자
+    ...dynamicData, // 좋아요 수, 댓글 수, 좋아요 여부
+    isOwner, // 소유권
   };
 };
 
-// ⭐️ 캐싱 적용 (React Cache)
-// 객체(DTO)를 인자로 받으면 cache가 제대로 동작하지 않을 수 있으므로(참조값 문제),
-// cache wrapper는 primitive 타입으로 풀어서 받는 것이 안전합니다.
-// 하지만 여기서는 DTO 패턴 유지를 위해 일단 감싸되, 호출 시 주의가 필요합니다.
-// (현업 팁: cache key를 확실히 하기 위해 id만 받는 래퍼를 따로 두기도 함)
-export const getPostInfo = cache(_getPostInfo);
-
+export type PostDetailData = NonNullable<Awaited<ReturnType<typeof getPostDetail>>>;
 
 /**
  * 게시물 생성

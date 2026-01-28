@@ -23,66 +23,68 @@ export function useLike({
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. Mutation 정의
+  // ⭐️ [핵심 1] 사용자의 "마지막 의도"를 저장하는 Ref
+  // useState는 렌더링에 반영되는 값이고, 이 Ref는 로직 검증용 최신 값입니다.
+  const latestUserIntent = useRef(initialIsLiked);
+
   const { mutate } = useMutation({
-    // ⭐️ 핵심: mutate() 호출 시 넘겨준 인자(boolean)를 여기서 받습니다.
     mutationFn: async (finalIsLiked: boolean) => {
-      // (선택 사항) 여기서 finalIsLiked 값을 이용해
-      // 서버로 "좋아요(true)"인지 "취소(false)"인지 명시적으로 보낼 수도 있습니다.
-      // 현재는 토글 액션이므로 호출 자체에 집중합니다.
-
-
       const result = await toggleLikeAction(null, {
         targetId,
         targetType,
-        finalIsLiked,
+        finalIsLiked, // 서버 액션에서 이 값을 받아 처리하도록 수정 필요
       });
 
       if (!result.success) {
-        console.log("serverAction failed");
         throw new Error(result.message || "좋아요 처리에 실패했습니다.");
       }
-
-      console.log("serverAction success");
       return result;
     },
 
     onSuccess: (result) => {
-      // 서버 데이터가 있으면 그것으로 덮어씌워 확실한 동기화
-      if (result.data) {
+      // ⭐️ [핵심 2] "서버 응답"이 "사용자의 최신 의도"와 다르면 무시합니다.
+      // 즉, 서버가 "좋아요 됐어!"라고 답장을 보냈는데,
+      // 그 사이에 사용자가 이미 "취소"를 눌렀다면(Ref가 false라면),
+      // 서버 응답으로 UI를 덮어쓰지 않고 무시합니다.
+      if (result.data && result.data.isLiked === latestUserIntent.current) {
         setIsLiked(result.data.isLiked);
         setLikeCount(result.data.likeCount);
+      } else {
+        console.log("⚠️ Stale response ignored: User clicked again.");
       }
     },
 
     onError: (error) => {
-      // variables는 mutate(finalIsLiked)에서 넘긴 값입니다.
-      // 즉, 실패 시 '어떤 상태로 가려다 실패했는지' 알 수 있습니다.
       console.error("Like mutation failed:", error);
       toast.error(error.message);
 
-      // ⭐️ 롤백: 실패했으므로 UI를 반대로 되돌림
-      setIsLiked((prev) => !prev);
+      // 실패 시 롤백은 Ref도 같이 돌려놔야 합니다.
+      setIsLiked((prev) => {
+        const rollbackValue = !prev;
+        latestUserIntent.current = rollbackValue; // Ref도 롤백 동기화
+        return rollbackValue;
+      });
       setLikeCount((prev) => (prev ? prev - 1 : prev + 1));
     },
   });
 
-  // 2. 핸들러
   const toggleLike = () => {
-    // [A] 낙관적 업데이트 (UI 즉시 변경)
+    // [A] 낙관적 업데이트
     const nextIsLiked = !isLiked;
+
     setIsLiked(nextIsLiked);
     setLikeCount((prev) => (nextIsLiked ? prev + 1 : prev - 1));
-    console.log(`Optimistic Update: ${nextIsLiked}`);
+
+    // ⭐️ Ref에 사용자의 최신 의도를 즉시 기록
+    latestUserIntent.current = nextIsLiked;
 
     // [B] 디바운싱
     if (timerRef.current) clearTimeout(timerRef.current);
 
     timerRef.current = setTimeout(() => {
-      // ⭐️ 300ms 뒤에 실행될 때, '지금 클릭했을 때의 의도(nextIsLiked)'를
-      // mutate의 인자로 고정해서 넘깁니다.
-      console.log("Debounce 끝, mutate 호출");
-      mutate(nextIsLiked);
+      // 타이머가 끝났을 때의 상태가 아닌,
+      // '현재 Ref에 저장된 최신 의도'를 보냅니다.
+      mutate(latestUserIntent.current);
     }, 300);
   };
 

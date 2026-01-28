@@ -33,7 +33,6 @@ const ClientFormSchema = z.object({
 type ClientFormType = z.infer<typeof ClientFormSchema>;
 
 export default function CreatePostForm() {
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {

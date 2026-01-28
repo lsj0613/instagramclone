@@ -65,7 +65,7 @@ export default function CommentItem({
           {/* [Top Line] 유저네임 + 본문 + 좋아요 아이콘 */}
           <div className="flex justify-between items-start gap-2">
             {/* 텍스트 영역: text-sm (Line Height: 20px) */}
-            <div className="text-sm leading-5 text-gray-900 break-all pt-[1px]">
+            <div className="text-sm leading-5 text-gray-900 break-all pt-px">
               <span className="mr-2 cursor-pointer font-semibold text-black hover:opacity-70">
                 {author.username}
               </span>

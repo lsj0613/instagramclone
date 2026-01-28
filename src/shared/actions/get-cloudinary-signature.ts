@@ -2,7 +2,9 @@
 
 import { v2 as cloudinary } from "cloudinary";
 import { env } from "@/lib/env";
-
+import { getCurrentUser } from "@/services/user.service";
+import { CLOUDINARY_FOLDERS, ROUTES } from "../constants";
+import { redirect } from "next/navigation";
 
 // Cloudinary 설정 (환경변수 확인 필수)
 cloudinary.config({
@@ -12,6 +14,11 @@ cloudinary.config({
 });
 
 export async function getCloudinarySignature() {
+  const user = await getCurrentUser();
+  if (!user) {
+    console.log("🚫 [SafeAction:Fail] 인증되지 않은 유저"); // 로그 추가
+    redirect(ROUTES.LOGIN);
+  }
   // 1. 타임스탬프 생성 (현재 시간)
   const timestamp = Math.round(new Date().getTime() / 1000);
 
@@ -20,7 +27,7 @@ export async function getCloudinarySignature() {
   const signature = cloudinary.utils.api_sign_request(
     {
       timestamp: timestamp,
-      folder: "user_posts", // 업로드할 폴더명 (클라이언트와 일치해야 함)
+      folder: CLOUDINARY_FOLDERS.POST_IMAGES, // 업로드할 폴더명 (클라이언트와 일치해야 함)
     },
     env.CLOUDINARY_API_SECRET!
   );

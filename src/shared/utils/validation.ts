@@ -138,7 +138,6 @@ export const GetCommentsSchema = z.object({
 });
 export type GetCommentsDTO = z.infer<typeof GetCommentsSchema>;
 
-export type GetCommentsInput = z.input<typeof GetCommentsSchema>;
 // 5. 대댓글 조회
 export const GetRepliesSchema = z.object({
   parentId: z.string().uuid(),
