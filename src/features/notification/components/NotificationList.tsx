@@ -1,5 +1,5 @@
+import { NotificationWithRelations } from "../service";
 import Notification from "./Notification";
-import { type NotificationWithRelations } from "@/services/notification.service";
 import { UI_TEXT } from "@/shared/constants";
 
 interface NotificationListProps {

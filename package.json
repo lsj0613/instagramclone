@@ -38,7 +38,8 @@
     "use-debounce": "^10.1.0",
     "uuid": "^13.0.0",
     "ws": "^8.19.0",
-    "zod": "^4.3.5"
+    "zod": "^4.3.5",
+    "zod-form-data": "^3.0.1"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.1.0",

@@ -6,7 +6,7 @@ import {
   createComment,
   deleteComment,
   updateComment,
-} from "@/services/comment.service"; // 👨‍🍳 요리사 (서비스)
+} from "./service"; // 👨‍🍳 요리사 (서비스)
 import {
   CreateCommentSchema,
   DeleteCommentSchema,

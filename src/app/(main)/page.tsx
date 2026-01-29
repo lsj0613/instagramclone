@@ -1,7 +1,7 @@
 import { signOut } from "@/lib/auth";
 import Link from "next/link";
 import Image from "next/image"; // ⭐️ Image 컴포넌트 임포트
-import { getCurrentUser } from "@/services/user.service";
+import { getCurrentUser } from "@/features/user/service";
 import { UI_TEXT } from "@/shared/constants";
 
 export default async function Home() {

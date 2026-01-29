@@ -1,4 +1,4 @@
-import { PaginatedCommentResult } from "@/services/comment.service";
+import { PaginatedCommentResult } from "../service";
 
 
 export const fetchComments = async ({

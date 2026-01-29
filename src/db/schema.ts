@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   pgTable,
   text,
@@ -9,9 +8,10 @@ import {
   index,
   boolean,
   pgEnum,
+  uniqueIndex,
   unique,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, isNull } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 
 // -------------------------------------------------------------------
@@ -43,7 +43,7 @@ export const users = pgTable(
     id: uuid("id")
       .primaryKey()
       .$defaultFn(() => uuidv7()),
-    username: text("username").notNull().unique(),
+    username: text("username").notNull(), // ⭐️ unique() 제거 -> 아래 uniqueIndex로 대체
     name: text("name"),
     email: text("email").notNull().unique(),
     password: text("password"),
@@ -55,16 +55,29 @@ export const users = pgTable(
       .notNull(),
     isPrivate: boolean("is_private").default(false).notNull(),
 
+    // ⭐️ [추가] 비정규화 카운트 (O(1) 조회용)
+    postCount: integer("post_count").default(0).notNull(),
+    followerCount: integer("follower_count").default(0).notNull(),
+    followingCount: integer("following_count").default(0).notNull(),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .notNull()
       .$onUpdate(() => new Date()),
+
+    // ⭐️ [추가] Soft Delete
+    deletedAt: timestamp("deleted_at"),
   },
   (table) => ({
-    // 🔍 검색 최적화: 유저 아이디나 이름으로 검색할 때 속도 향상
-    usernameIdx: index("users_username_idx").on(table.username),
+    // 🔍 검색 최적화
     nameIdx: index("users_name_idx").on(table.name),
+
+    // ⭐️ [중요] "삭제 안 된 유저끼리만" 닉네임 중복 방지 (Partial Unique Index)
+    // 탈퇴한 유저의 아이디를 다른 사람이 다시 쓸 수 있게 해줌.
+    uniqueUsernameActive: uniqueIndex("users_username_active_unique")
+      .on(table.username)
+      .where(isNull(table.deletedAt)),
   })
 );
 
@@ -83,19 +96,29 @@ export const posts = pgTable(
     latitude: doublePrecision("latitude"),
     longitude: doublePrecision("longitude"),
 
+    // ⭐️ [추가] 비정규화 카운트
+    likeCount: integer("like_count").default(0).notNull(),
+    commentCount: integer("comment_count").default(0).notNull(),
+
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .notNull()
       .$onUpdate(() => new Date()),
+
+    // ⭐️ [추가] Soft Delete
+    deletedAt: timestamp("deleted_at"),
   },
   (table) => ({
-    // 🔍 피드 최적화: "특정 유저의 최신 글"을 가져올 때 매우 중요 (복합 인덱스)
+    // 🔍 피드 최적화
     authorCreatedIdx: index("posts_author_created_idx").on(
       table.authorId,
       table.createdAt
     ),
     createdAtIdx: index("posts_created_at_idx").on(table.createdAt),
+
+    // ⭐️ [추가] 삭제된 글 필터링 최적화
+    deletedAtIdx: index("posts_deleted_at_idx").on(table.deletedAt),
   })
 );
 
@@ -110,9 +133,7 @@ export const postImages = pgTable(
       .references(() => posts.id, { onDelete: "cascade" })
       .notNull(),
 
-    // ⭐️ [추가됨] Cloudinary 관리용 ID
     publicId: text("public_id").notNull(),
-
     url: text("url").notNull(),
 
     width: integer("width").notNull(),
@@ -139,19 +160,25 @@ export const comments = pgTable(
     authorId: uuid("author_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
-    parentId: uuid("parent_id").references((): any => comments.id, {
-      onDelete: "cascade",
-    }),
+    // ⭐️ any 타입 제거 및 Self Reference 안전하게 처리 (아래 foreignKey는 선택사항)
+    parentId: uuid("parent_id"),
+
     content: text("content").notNull(),
+
+    // ⭐️ [추가] 비정규화 카운트
+    likeCount: integer("like_count").default(0).notNull(),
+    replyCount: integer("reply_count").default(0).notNull(),
 
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
       .notNull()
       .$onUpdate(() => new Date()),
+
+    // ⭐️ [추가] Soft Delete
+    deletedAt: timestamp("deleted_at"),
   },
   (table) => ({
-    // 🔍 댓글 목록 최적화: "이 글의 댓글을 최신순/오래된순으로"
     postCreatedIdx: index("comments_post_created_idx").on(
       table.postId,
       table.createdAt
@@ -161,13 +188,13 @@ export const comments = pgTable(
   })
 );
 
-// [PostLikes] 게시물 좋아요 (PK 추가됨)
+// [PostLikes] 게시물 좋아요
 export const postLikes = pgTable(
   "post_likes",
   {
     id: uuid("id")
       .primaryKey()
-      .$defaultFn(() => uuidv7()), // ⭐️ 변경: 고유 ID 부여
+      .$defaultFn(() => uuidv7()),
     userId: uuid("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
@@ -177,20 +204,18 @@ export const postLikes = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => ({
-    // ⭐️ 중요: (유저 + 게시물) 조합은 유니크해야 함 (중복 좋아요 방지)
     uniqueLike: unique("post_likes_unique").on(t.userId, t.postId),
-    // 🔍 조회 최적화: "이 글의 좋아요 개수는?" 혹은 "누가 좋아요 했나?"
     postIdIdx: index("post_likes_post_id_idx").on(t.postId),
   })
 );
 
-// [CommentLikes] 댓글 좋아요 (PK 추가됨)
+// [CommentLikes] 댓글 좋아요
 export const commentLikes = pgTable(
   "comment_likes",
   {
     id: uuid("id")
       .primaryKey()
-      .$defaultFn(() => uuidv7()), // ⭐️ 변경: 고유 ID 부여
+      .$defaultFn(() => uuidv7()),
     userId: uuid("user_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
@@ -200,19 +225,18 @@ export const commentLikes = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (t) => ({
-    // ⭐️ 중요: 중복 좋아요 방지
     uniqueLike: unique("comment_likes_unique").on(t.userId, t.commentId),
     commentIdIdx: index("comment_likes_comment_id_idx").on(t.commentId),
   })
 );
 
-// [Follows] 팔로우 (PK 추가됨)
+// [Follows] 팔로우
 export const follows = pgTable(
   "follows",
   {
     id: uuid("id")
       .primaryKey()
-      .$defaultFn(() => uuidv7()), // ⭐️ 변경: 고유 ID 부여
+      .$defaultFn(() => uuidv7()),
     followerId: uuid("follower_id")
       .references(() => users.id, { onDelete: "cascade" })
       .notNull(),
@@ -228,20 +252,16 @@ export const follows = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => ({
-    // ⭐️ 중요: 중복 팔로우 방지
     uniqueFollow: unique("follows_unique").on(t.followerId, t.followingId),
-
-    // 🔍 조회 최적화: "나를 팔로우하는 사람 목록(팔로워)" 조회 시 필수
     followingIdIdx: index("follows_following_id_idx").on(
       t.followingId,
       t.status
     ),
-    // 🔍 "내가 팔로우하는 사람 목록(팔로잉)"은 unique constraint의 첫 번째 컬럼(followerId)을 타므로 별도 인덱스 불필요할 수 있으나, 명시적으로 두어도 됨.
     followerIdIdx: index("follows_follower_id_idx").on(t.followerId, t.status),
   })
 );
 
-// [Notifications] 알림 (Self-cleaning 적용)
+// [Notifications] 알림
 export const notifications = pgTable(
   "notifications",
   {
@@ -256,14 +276,11 @@ export const notifications = pgTable(
       .notNull(),
     type: notificationTypeEnum("type").notNull(),
 
-    // 🔗 연결 정보 (Deep Link용)
     postId: uuid("post_id").references(() => posts.id, { onDelete: "cascade" }),
     commentId: uuid("comment_id").references(() => comments.id, {
       onDelete: "cascade",
     }),
 
-    // 🧹 Self-cleaning을 위한 Trigger FK (이것들이 삭제되면 알림도 삭제됨)
-    // 좋아요 취소 -> postLikes 행 삭제 -> notifications 행 자동 삭제
     postLikeId: uuid("post_like_id").references(() => postLikes.id, {
       onDelete: "cascade",
     }),
@@ -278,12 +295,10 @@ export const notifications = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => ({
-    // 🔍 알림 목록 조회: "내 알림을 최신순으로"
     recipientCreatedIdx: index("notifications_recipient_created_idx").on(
       table.recipientId,
       table.createdAt
     ),
-    // 🔍 "안 읽은 알림 개수" 카운트용 (선택 사항)
     unreadIdx: index("notifications_unread_idx").on(
       table.recipientId,
       table.isRead
@@ -324,7 +339,6 @@ export const commentsRelations = relations(comments, ({ one, many }) => ({
   replies: many(comments, { relationName: "replies" }),
 }));
 
-// 좋아요/팔로우 관계 설정 (단방향 참조가 많아 간단히 설정)
 export const postLikesRelations = relations(postLikes, ({ one }) => ({
   user: one(users, { fields: [postLikes.userId], references: [users.id] }),
   post: one(posts, { fields: [postLikes.postId], references: [posts.id] }),
@@ -361,7 +375,6 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     fields: [notifications.actorId],
     references: [users.id],
   }),
-  // 알림에서 연결된 원본 데이터로 바로 접근 가능하게 설정
   post: one(posts, { fields: [notifications.postId], references: [posts.id] }),
   comment: one(comments, {
     fields: [notifications.commentId],

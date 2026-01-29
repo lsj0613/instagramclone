@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { UserProfileData } from "@/services/user.service";
 import { Lock } from "lucide-react";
+import { UserProfileData } from "../service";
 
 export default function ProfileDetailView({ user }: { user: UserProfileData }) {
   const isPrivateAccount = user.isPrivate && !user.isOwner;

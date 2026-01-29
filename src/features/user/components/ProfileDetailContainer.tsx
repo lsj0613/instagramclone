@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getCurrentUser, getUserProfile } from "@/services/user.service";
+import { getCurrentUser, getUserProfile } from "../service";
 import { notFound, redirect } from "next/navigation";
 import { ROUTES } from "@/shared/constants";
 import ProfileDetailView from "./ProfileDetailView";

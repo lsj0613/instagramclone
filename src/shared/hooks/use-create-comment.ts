@@ -7,8 +7,8 @@ import {
 } from "@tanstack/react-query";
 import { createCommentAction } from "@/features/comment/actions";
 import { toast } from "sonner"; // 혹은 alert
-import { CommentWithAuthor } from "@/services/comment.service";
-import { CurrentUserData } from "@/services/user.service";
+import { CommentWithAuthor } from "@/features/comment/service";
+import { CurrentUserData } from "@/features/user/service";
 
 // 1. 무한 스크롤 데이터 구조 정의 (TanStack Query가 관리하는 형태)
 interface CommentsInfiniteData {
@@ -82,6 +82,7 @@ export function useCreateComment({
         parentId: null,
         replyCount: 0,
         isOwner: true,
+        deletedAt: null,
       };
       console.log(
         "[낙관적업데이트] 4. 화면에 먼저 보여줄 가짜 댓글 생성:",

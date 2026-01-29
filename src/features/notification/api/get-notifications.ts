@@ -1,4 +1,4 @@
-import { NotificationWithRelations } from "@/services/notification.service";
+import { NotificationWithRelations } from "../service";
 
 interface FetchNotificationsResponse {
   items: NotificationWithRelations[];

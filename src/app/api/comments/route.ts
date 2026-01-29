@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getCommentsInDb } from "@/services/comment.service";
-import { getCurrentUser } from "@/services/user.service";
+import { getCurrentUser } from "@/features/user/service";
 import { ROUTES } from "@/shared/constants";
 import { redirect } from "next/navigation";
+import { getCommentsInDb } from "@/features/comment/service";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   }
 
   const data = await getCommentsInDb({
-    postId,
+    postId : postId,
     currentUserId: currentUser?.id,
     cursorId: safeCursor || undefined,
   });

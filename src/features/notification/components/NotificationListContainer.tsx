@@ -5,7 +5,7 @@ import { useInView } from "react-intersection-observer";
 import { useEffect } from "react";
 import NotificationList from "./NotificationList";
 import NotificationListSkeleton from "./NotificationListSkeleton";
-import { CurrentUserData } from "@/services/user.service";
+import { CurrentUserData } from "@/features/user/service";
 import { ERROR_MESSAGES } from "@/shared/constants";
 import { fetchNotifications } from "../api/get-notifications";
 

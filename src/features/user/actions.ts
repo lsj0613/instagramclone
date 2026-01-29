@@ -1,56 +1,22 @@
 "use server";
 
-import { ilike, or } from "drizzle-orm";
-import { users } from "@/db/schema";
-import db from "@/lib/db";
-import { ActionResponse } from "@/lib/types";
-import { ERROR_MESSAGES } from "@/shared/constants";
+import { createSafeAction } from "@/lib/safe-action"; // ⭐️ 만드신 createSafeAction 경로
+import { SearchUserSchema } from "@/shared/utils/validation";
+import { searchUsersInDb } from "./service";
 
-export interface SearchUser {
-  id: string;
-  username: string;
-  name: string | null;
-  profileImage: string | null;
-}
+/**
+ * 유저 검색 액션
+ * - 인증된 유저만 호출 가능 (createSafeAction 내부에서 처리)
+ * - 입력값 검증 (Zod)
+ * - 에러 처리 자동화
+ */
+export const searchUsersAction = createSafeAction(
+  SearchUserSchema,
+  async (data, user) => {
+    // data.query는 Zod 검증을 통과한 문자열
+    // user는 현재 로그인한 유저 객체
+    const users = await searchUsersInDb(data.query, user.id);
 
-export async function searchUsersAction(
-  prevstate: ActionResponse<SearchUser[]> | null,
-  query: string
-): Promise<ActionResponse<SearchUser[]>> {
-  try {
-    // 검색어가 없으면 빈 배열 반환 (성공으로 처리)
-    if (!query || query.trim() === "") {
-      return { success: true, data: [] };
-    }
-
-    const searchPattern = `${query}%`;
-
-    const searchResults = await db
-      .select({
-        id: users.id,
-        username: users.username,
-        name: users.name,
-        profileImage: users.profileImage,
-      })
-      .from(users)
-      .where(
-        or(
-          ilike(users.username, searchPattern),
-          ilike(users.name, searchPattern)
-        )
-      )
-      .limit(20);
-
-    return {
-      success: true,
-      data: searchResults, // 결과가 없으면 자연스럽게 []가 들어갑니다.
-    };
-  } catch (error) {
-    console.error("Search error:", error);
-    return {
-      success: false,
-      // ⭐️ 수정됨: fieldErrors(객체) 대신 message(문자열) 필드 사용
-      message: ERROR_MESSAGES.SEARCH_ERROR,
-    };
+    return users;
   }
-}
+);

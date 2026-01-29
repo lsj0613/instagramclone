@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSafeAction } from "@/lib/safe-action"; // 🛡️ 마법의 도구
-import { createPostInDB, deletePostInDb, updatePostInDB } from "@/services/post.service";
+import { createPostInDB, deletePostInDb, updatePostInDB } from "./service";
 import {
   CreatePostSchema,
   DeletePostSchema,

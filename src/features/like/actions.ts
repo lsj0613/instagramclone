@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { createSafeAction } from "@/lib/safe-action";
-import { toggleLikeInDb } from "@/services/like.service";
+import { toggleLikeInDb } from "./service";
 
 // 1. 입력 스키마 정의 (ID와 타입만 받으면 됨)
 const ToggleLikeSchema = z.object({

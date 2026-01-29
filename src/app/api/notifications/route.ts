@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/services/user.service";
+import { getCurrentUser } from "@/features/user/service";
 import db from "@/lib/db";
 import { notifications } from "@/db/schema";
 import { eq, desc, lt, and } from "drizzle-orm";

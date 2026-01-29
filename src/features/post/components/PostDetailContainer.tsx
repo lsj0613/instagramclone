@@ -1,6 +1,6 @@
 import "server-only";
-import { getCurrentUser } from "@/services/user.service";
-import { getPostDetail } from "@/services/post.service";
+import { getCurrentUser } from "@/features/user/service";
+import { getPostDetail } from "../service";
 import { notFound, redirect } from "next/navigation";
 import { ROUTES } from "@/shared/constants";
 import PostDetailView from "./PostDetailView";
@@ -11,8 +11,8 @@ import {
   dehydrate,
 } from "@tanstack/react-query";
 import CommentSection from "@/features/comment/components/CommentSection";
-import { getCommentsInDb } from "@/services/comment.service";
 import CommentInput from "@/features/comment/components/CommentInput";
+import { getCommentsInDb } from "@/features/comment/service";
 
 export default async function PostDetailContainer({
   postId,

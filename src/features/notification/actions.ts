@@ -1,8 +1,8 @@
 "use server";
 
 import { createSafeAction } from "@/lib/safe-action";
-import { markNotificationAsRead } from "@/services/notification.service";
 import z from "zod";
+import { markNotificationAsRead } from "./service";
 
 //TODO : 알림 읽음 여부 변경하는 서버액션 작성하기
 

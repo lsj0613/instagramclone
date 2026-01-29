@@ -2,7 +2,7 @@
 
 import { v2 as cloudinary } from "cloudinary";
 import { env } from "@/lib/env";
-import { getCurrentUser } from "@/services/user.service";
+import { getCurrentUser } from "@/features/user/service";
 import { CLOUDINARY_FOLDERS, ROUTES } from "../constants";
 import { redirect } from "next/navigation";
 

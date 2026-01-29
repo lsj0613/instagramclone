@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 import { useCreateComment } from "@/shared/hooks/use-create-comment";
-import { CurrentUserData } from "@/services/user.service";
+import { CurrentUserData } from "@/features/user/service";
 
 const commentSchema = z.object({
   // trim() 후 최소 1자 이상이어야 유효함

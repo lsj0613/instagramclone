@@ -4,9 +4,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
-import { type NotificationWithRelations } from "@/services/notification.service";
 import { UI_TEXT } from "@/shared/constants";
 import { markNotificationAsReadAction } from "@/features/notification/actions";
+import { NotificationWithRelations } from "../service";
 
 interface NotificationProps {
   notification: NotificationWithRelations;

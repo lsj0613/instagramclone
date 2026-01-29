@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Heart, MoreHorizontal } from "lucide-react";
 import { cn } from "@/shared/utils/utils";
-import { CommentWithAuthor } from "@/services/comment.service";
+import { CommentWithAuthor } from "../service";
 
 export default function CommentItem({
   comment,

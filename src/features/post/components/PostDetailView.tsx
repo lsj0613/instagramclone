@@ -4,10 +4,10 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { deletePostAction } from "@/features/post/actions";
-import { PostDetailData } from "@/services/post.service";
 import { UI_TEXT } from "@/shared/constants";
 import isRedirectError from "@/shared/utils/redirect";
 import { useLike } from "@/shared/hooks/use-like";
+import { PostDetailData } from "../service";
 
 interface PostDetailViewProps {
   post: PostDetailData;
