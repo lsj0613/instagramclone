@@ -4,7 +4,7 @@ import db from "@/lib/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
-import { LoginSchema } from "@/shared/utils/validation";
+import { LoginSchema } from "@/lib/validation";
 import NextAuth, { type DefaultSession } from "next-auth";
 import { env } from "@/lib/env";
 

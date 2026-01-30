@@ -1,36 +1,34 @@
 import "server-only";
 
-import db from "@/lib/db";
 import { postLikes, commentLikes, posts, comments } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { createNotification } from "../notification/service";
-
-type TargetType = "POST" | "COMMENT";
-
-interface ToggleLikeDTO {
-  targetId: string;
-  targetType: TargetType;
-  userId: string;
-  finalIsLiked: boolean;
-}
+import { DbClient } from "@/lib/types";
+import { runInTransaction } from "@/lib/run-in-transaction";
+import { ToggleLikeDTO } from "./validation";
+import { ToggleLikeResponse } from "./types";
 
 /**
- * 좋아요 동기화 서비스 (Atomic Update 적용)
+ * 좋아요 토글 서비스
+ * - 게시물(POST) 및 댓글(COMMENT) 좋아요 처리
+ * - 비정규화 컬럼(likeCount) 원자적 업데이트
+ * - 좋아요 추가 시 알림 생성 로직 포함
  */
-export const toggleLikeInDb = async (
+export async function toggleLike(
   data: ToggleLikeDTO,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx?: any
-) => {
+  tx?: DbClient
+): Promise<ToggleLikeResponse> {
   const { targetId, targetType, userId, finalIsLiked } = data;
 
-  const execute = async (dbInstance: typeof tx | typeof db) => {
-    // 1. 요청한 상태(finalIsLiked)를 그대로 반환값으로 사용
-    const isLiked = finalIsLiked;
+  return await runInTransaction(async (transaction) => {
+    let currentLikeCount = 0;
+    let newLikeId: string | undefined;
 
+    // -------------------------------------------------------------------
+    // [CASE 1] 게시물(POST) 좋아요 처리
+    // -------------------------------------------------------------------
     if (targetType === "POST") {
-      // [A] 게시물 좋아요 로직
-      const existingLike = await dbInstance.query.postLikes.findFirst({
+      const existingLike = await transaction.query.postLikes.findFirst({
         where: and(
           eq(postLikes.postId, targetId),
           eq(postLikes.userId, userId)
@@ -38,20 +36,36 @@ export const toggleLikeInDb = async (
       });
 
       if (finalIsLiked && !existingLike) {
-        // [CREATE] 좋아요 추가
-        const [newLike] = await dbInstance
+        // 1-1. 좋아요 데이터 삽입
+        const [inserted] = await transaction
           .insert(postLikes)
-          .values({ postId: targetId, userId: userId })
+          .values({ postId: targetId, userId })
           .returning();
+        newLikeId = inserted.id;
 
-        // ⭐️ [ATOMIC] 게시물 카운트 +1
-        await dbInstance
+        // 1-2. [비정규화] 게시물 좋아요 카운트 증가
+        await transaction
           .update(posts)
           .set({ likeCount: sql`${posts.likeCount} + 1` })
           .where(eq(posts.id, targetId));
+      } else if (!finalIsLiked && existingLike) {
+        // 1-3. 좋아요 데이터 삭제
+        await transaction
+          .delete(postLikes)
+          .where(
+            and(eq(postLikes.postId, targetId), eq(postLikes.userId, userId))
+          );
 
-        // [NOTI] 알림 생성
-        const postData = await dbInstance.query.posts.findFirst({
+        // 1-4. [비정규화] 게시물 좋아요 카운트 감소
+        await transaction
+          .update(posts)
+          .set({ likeCount: sql`${posts.likeCount} - 1` })
+          .where(eq(posts.id, targetId));
+      }
+
+      // 1-5. 알림 생성 (좋아요 추가 시에만)
+      if (finalIsLiked && newLikeId) {
+        const postData = await transaction.query.posts.findFirst({
           where: eq(posts.id, targetId),
           columns: { authorId: true },
         });
@@ -63,35 +77,25 @@ export const toggleLikeInDb = async (
               recipientId: postData.authorId,
               type: "LIKE",
               postId: targetId,
-              postLikeId: newLike.id,
+              postLikeId: newLikeId,
             },
-            dbInstance
+            transaction
           );
         }
-      } else if (!finalIsLiked && existingLike) {
-        // [DELETE] 좋아요 취소
-        await dbInstance
-          .delete(postLikes)
-          .where(
-            and(eq(postLikes.postId, targetId), eq(postLikes.userId, userId))
-          );
-
-        // ⭐️ [ATOMIC] 게시물 카운트 -1
-        await dbInstance
-          .update(posts)
-          .set({ likeCount: sql`${posts.likeCount} - 1` })
-          .where(eq(posts.id, targetId));
       }
 
-      // [RETURN] 최신 카운트를 posts 테이블에서 직접 가져옴 (매우 빠름)
-      const post = await dbInstance.query.posts.findFirst({
+      // 1-6. 최신 카운트 조회
+      const updatedPost = await transaction.query.posts.findFirst({
         where: eq(posts.id, targetId),
         columns: { likeCount: true },
       });
-      return { isLiked, likeCount: post?.likeCount ?? 0 };
+      currentLikeCount = updatedPost?.likeCount ?? 0;
+
+      // -------------------------------------------------------------------
+      // [CASE 2] 댓글(COMMENT) 좋아요 처리
+      // -------------------------------------------------------------------
     } else {
-      // [B] 댓글 좋아요 로직
-      const existingLike = await dbInstance.query.commentLikes.findFirst({
+      const existingLike = await transaction.query.commentLikes.findFirst({
         where: and(
           eq(commentLikes.commentId, targetId),
           eq(commentLikes.userId, userId)
@@ -99,20 +103,39 @@ export const toggleLikeInDb = async (
       });
 
       if (finalIsLiked && !existingLike) {
-        // [CREATE]
-        const [newLike] = await dbInstance
+        // 2-1. 좋아요 데이터 삽입
+        const [inserted] = await transaction
           .insert(commentLikes)
-          .values({ commentId: targetId, userId: userId })
+          .values({ commentId: targetId, userId })
           .returning();
+        newLikeId = inserted.id;
 
-        // ⭐️ [ATOMIC] 댓글 카운트 +1
-        await dbInstance
+        // 2-2. [비정규화] 댓글 좋아요 카운트 증가
+        await transaction
           .update(comments)
           .set({ likeCount: sql`${comments.likeCount} + 1` })
           .where(eq(comments.id, targetId));
+      } else if (!finalIsLiked && existingLike) {
+        // 2-3. 좋아요 데이터 삭제
+        await transaction
+          .delete(commentLikes)
+          .where(
+            and(
+              eq(commentLikes.commentId, targetId),
+              eq(commentLikes.userId, userId)
+            )
+          );
 
-        // [NOTI]
-        const commentData = await dbInstance.query.comments.findFirst({
+        // 2-4. [비정규화] 댓글 좋아요 카운트 감소
+        await transaction
+          .update(comments)
+          .set({ likeCount: sql`${comments.likeCount} - 1` })
+          .where(eq(comments.id, targetId));
+      }
+
+      // 2-5. 알림 생성 (댓글 좋아요 추가 시)
+      if (finalIsLiked && newLikeId) {
+        const commentData = await transaction.query.comments.findFirst({
           where: eq(comments.id, targetId),
           columns: { authorId: true, postId: true },
         });
@@ -123,41 +146,26 @@ export const toggleLikeInDb = async (
               actorId: userId,
               recipientId: commentData.authorId,
               type: "COMMENT_LIKE",
-              commentId: targetId,
               postId: commentData.postId,
-              commentLikeId: newLike.id,
+              commentId: targetId,
+              commentLikeId: newLikeId,
             },
-            dbInstance
+            transaction
           );
         }
-      } else if (!finalIsLiked && existingLike) {
-        // [DELETE]
-        await dbInstance
-          .delete(commentLikes)
-          .where(
-            and(
-              eq(commentLikes.commentId, targetId),
-              eq(commentLikes.userId, userId)
-            )
-          );
-
-        // ⭐️ [ATOMIC] 댓글 카운트 -1
-        await dbInstance
-          .update(comments)
-          .set({ likeCount: sql`${comments.likeCount} - 1` })
-          .where(eq(comments.id, targetId));
       }
 
-      // [RETURN]
-      const comment = await dbInstance.query.comments.findFirst({
+      // 2-6. 최신 카운트 조회
+      const updatedComment = await transaction.query.comments.findFirst({
         where: eq(comments.id, targetId),
         columns: { likeCount: true },
       });
-      return { isLiked, likeCount: comment?.likeCount ?? 0 };
+      currentLikeCount = updatedComment?.likeCount ?? 0;
     }
-  };
 
-  return tx
-    ? await execute(tx)
-    : await db.transaction(async (newTx) => await execute(newTx));
-};
+    return {
+      isLiked: finalIsLiked,
+      likeCount: currentLikeCount,
+    };
+  }, tx);
+}

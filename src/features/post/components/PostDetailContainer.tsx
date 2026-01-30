@@ -12,7 +12,7 @@ import {
 } from "@tanstack/react-query";
 import CommentSection from "@/features/comment/components/CommentSection";
 import CommentInput from "@/features/comment/components/CommentInput";
-import { getCommentsInDb } from "@/features/comment/service";
+import { getComments } from "@/features/comment/service";
 
 export default async function PostDetailContainer({
   postId,
@@ -30,7 +30,7 @@ export default async function PostDetailContainer({
     queryClient.prefetchInfiniteQuery({
       queryKey: ["comments", postId],
       queryFn: () =>
-        getCommentsInDb({
+        getComments({
           postId: postId,
           limit: 20,
           currentUserId: currentUser.id,

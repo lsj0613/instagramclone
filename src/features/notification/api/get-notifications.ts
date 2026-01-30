@@ -1,21 +1,17 @@
-import { NotificationWithRelations } from "../service";
+import { PaginatedNotifications } from "../types";
 
-interface FetchNotificationsResponse {
-  items: NotificationWithRelations[];
-  nextCursor?: string | null;
-}
-
-// ⭐️ pageParam의 타입은 API에서 내려주는 nextCursor 타입과 같아야 함 (string)
+/**
+ * 클라이언트에서 호출할 알림 페칭 함수 (TanStack Query용)
+ */
 export async function fetchNotifications({
-  pageParam,
+  pageParam, // cursor ID
 }: {
   pageParam?: string;
-}) {
+}): Promise<PaginatedNotifications> {
   const queryParams = new URLSearchParams({
     limit: "20",
   });
 
-  // 커서가 있으면 파라미터에 추가 (첫 페이지일 땐 없음)
   if (pageParam) {
     queryParams.append("cursor", pageParam);
   }
@@ -23,8 +19,9 @@ export async function fetchNotifications({
   const response = await fetch(`/api/notifications?${queryParams.toString()}`);
 
   if (!response.ok) {
-    throw new Error("Failed to fetch notifications");
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to fetch notifications");
   }
 
-  return response.json() as Promise<FetchNotificationsResponse>;
+  return response.json();
 }

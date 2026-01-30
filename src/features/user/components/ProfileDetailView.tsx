@@ -13,7 +13,7 @@ export default function ProfileDetailView({ user }: { user: UserProfileData }) {
       {/* --- 프로필 헤더 --- */}
       <header className="flex flex-col md:flex-row mb-10">
         {/* [좌측] 프로필 이미지 영역 (PC 기준 너비 고정 및 정렬) */}
-        <div className="flex-shrink-0 md:w-[290px] flex justify-center md:justify-center items-start md:mr-[30px]">
+        <div className="shrink-0 md:w-[290px] flex justify-center md:justify-center items-start md:mr-[30px]">
           <div className="relative w-[77px] h-[77px] md:w-[150px] md:h-[150px]">
             <Image
               src={user.profileImage || "/default-profile.png"}
@@ -27,14 +27,14 @@ export default function ProfileDetailView({ user }: { user: UserProfileData }) {
         </div>
 
         {/* [우측] 유저 정보 영역 */}
-        <div className="flex flex-col flex-grow md:mt-3">
+        <div className="flex flex-col grow md:mt-3">
           {/* 1열: 아이디 & 버튼 */}
           <div className="flex flex-col md:flex-row md:items-center mb-5 gap-4 md:gap-5">
             <h1 className="text-[20px] font-normal text-gray-900 leading-8 shrink-0">
               {user.username}
             </h1>
 
-            <div className="flex gap-2 flex-grow md:flex-grow-0">
+            <div className="flex gap-2 grow md:grow-0">
               {user.isOwner ? (
                 <>
                   <button className="px-4 py-[7px] bg-[#efefef] hover:bg-[#dbdbdb] rounded-lg text-sm font-semibold transition text-black">
